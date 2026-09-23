@@ -344,7 +344,7 @@ body.hub { overflow: auto; }
 .hub-main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 48px; padding: clamp(32px, 7vh, 88px) var(--pad); }
 .hub-head { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .hub-head h1 { font-family: var(--serif); font-size: clamp(36px, 4.4vw, 58px); font-weight: 400; letter-spacing: 0.04em; }
-.hub-games { display: grid; grid-template-columns: repeat(2, minmax(0, 420px)); gap: 28px; }
+.hub-games { display: grid; grid-template-columns: repeat(3, minmax(0, 380px)); gap: 28px; }
 .game-card {
   display: flex;
   flex-direction: column;
@@ -372,3 +372,59 @@ body.hub { overflow: auto; }
 #tune-wilor { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
 #engine-state { color: var(--emerald-tint) !important; }
 .field code { font-family: var(--latin); font-size: 13px; color: var(--ivory); }
+
+/* ---------- 손기술 (섯다) ---------- */
+.stats dd.gold { color: var(--gold); }
+.btn.danger { color: var(--ruby-tint); border-color: var(--ruby); }
+#seats { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.seat { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 140px; }
+body.intro .seat, body.intro .tag, body.intro #skills { visibility: hidden; }
+.seat .avatar, .avatar { width: 52px; height: 52px; border-radius: 50%; background: #1e1a16; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-size: 20px; }
+.avatar.big { width: 84px; height: 84px; font-size: 30px; border-color: var(--ruby); }
+.seat .nm { font-family: var(--serif); font-size: 15px; }
+.seat .money { font-family: var(--latin); font-size: 19px; }
+.seat .sus { width: 120px; height: 3px; background: var(--line); }
+.seat .sus b { display: block; height: 3px; width: 0; transition: width 0.3s; }
+.seat .status { font-size: 11px; letter-spacing: 0.1em; color: var(--muted); min-height: 14px; }
+.seat.gazing .avatar { border-color: var(--ruby); box-shadow: 0 0 0 3px rgba(201, 69, 75, 0.25); }
+.seat.gazing .status { color: var(--ruby-tint); }
+.seat.turn .avatar { border-color: var(--gold); }
+.tag { position: fixed; left: 0; top: 0; font-size: 11px; letter-spacing: 0.14em; color: var(--muted); pointer-events: none; z-index: 5; }
+#skills { position: fixed; right: var(--pad); top: 260px; width: 240px; display: flex; flex-direction: column; gap: 8px; z-index: 6; }
+.skill { padding: 11px 13px; background: var(--surface); border-left: 2px solid var(--gold); }
+.skill > div { display: flex; justify-content: space-between; font-family: var(--serif); font-size: 14px; }
+.skill .st { font-family: var(--sans); font-size: 11px; letter-spacing: 0.08em; color: var(--gold); }
+.skill p { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.skill[data-state="off"] { opacity: 0.5; }
+.skill[data-state="trap"] { border-color: var(--sapphire); } .skill[data-state="trap"] .st { color: var(--sapphire-tint); }
+.skill[data-state="risk"] { border-color: var(--ruby); } .skill[data-state="risk"] .st { color: var(--ruby-tint); }
+body.sutda .legend span::before { content: ''; width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold); }
+body.sutda #cam { top: auto; bottom: clamp(14px, 3.5vh, 32px); }
+
+#standoff { position: fixed; inset: 0; z-index: 45; pointer-events: none; }
+#standoff[hidden] { display: none; }
+#standoff > * { pointer-events: auto; }
+body:has(#standoff:not([hidden])) #app, body:has(#standoff:not([hidden])) #skills, body:has(#standoff:not([hidden])) .tag { opacity: 0.12; }
+.so-head { position: absolute; left: 50%; top: 36px; transform: translateX(-50%); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.so-head h2 { font-family: var(--serif); font-size: 46px; font-weight: 400; letter-spacing: 0.1em; }
+.so-head p { color: var(--muted); font-size: 16px; }
+.so-left { position: absolute; left: 80px; top: 300px; width: 270px; display: flex; flex-direction: column; gap: 10px; }
+.so-rung { display: flex; justify-content: space-between; align-items: baseline; padding: 13px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 13px; letter-spacing: 0.1em; }
+.so-rung b { font-family: var(--latin); font-size: 25px; font-weight: 500; }
+.so-rung.done { color: var(--gold); } .so-rung.now { color: var(--ivory); border-color: var(--gold); background: #1c1812; }
+.so-left p, .so-right p { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.so-opp { position: absolute; left: 50%; top: 190px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.meter { display: flex; flex-direction: column; gap: 5px; width: 170px; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); }
+.meter.wide { width: 100%; }
+.meter i, .hold i { display: block; height: 3px; background: var(--line); }
+.meter b, .hold b { display: block; height: 3px; width: 0; background: var(--ruby); transition: width 0.3s; }
+#so-hes { background: var(--amber); } #so-shake { background: var(--emerald); } #so-hold { background: var(--gold); transition: none; }
+.so-right { position: absolute; right: 80px; top: 300px; width: 290px; display: flex; flex-direction: column; gap: 14px; }
+.hold { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; line-height: 1.6; }
+.so-actions { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); display: flex; gap: 12px; }
+#reveal .card { border-top-color: var(--gold); }
+#reveal[data-win="false"] .card, #modal-over[data-won="false"] .card { border-top-color: var(--ruby); }
+#modal-over .stack a.btn { text-decoration: none; height: 64px; }
+@media (max-width: 1100px) { #skills { display: none; } .so-left { left: 20px; } .so-right { right: 20px; } }
+
+.dock button[hidden] { display: none; }

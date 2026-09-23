@@ -263,3 +263,27 @@ newPuzzle();
 
 // Debug/test handle
 window.__game = { state, play, scene, solve: () => solve(boardOf(state.pieces)), hand: shell.injectHandFrame };
+
+// ---------- ?demo: a staged scene for screenshots (no camera needed) ----------
+if (new URLSearchParams(location.search).has('demo')) {
+  const LM = [[0.5,0.80,0],[0.56,0.74,-0.02],[0.60,0.66,-0.04],[0.60,0.58,-0.06],[0.57,0.52,-0.08],[0.54,0.58,-0.02],[0.55,0.49,-0.05],[0.555,0.47,-0.08],[0.56,0.505,-0.1],[0.50,0.57,-0.02],[0.50,0.47,-0.03],[0.50,0.41,-0.04],[0.50,0.36,-0.05],[0.46,0.58,-0.02],[0.455,0.49,-0.03],[0.45,0.43,-0.04],[0.45,0.39,-0.05],[0.425,0.61,-0.02],[0.415,0.54,-0.03],[0.41,0.49,-0.04],[0.405,0.45,-0.05]].map(([x, y, z]) => ({ x, y, z }));
+  const hf = (p, pinching) => shell.injectHandFrame({ present: true, x: p.x / innerWidth, y: p.y / innerHeight, pinching,
+    landmarks: LM, pinchRatio: pinching ? 0.15 : 0.6, pinchDown: 0.3, pinchUp: 0.44, handedness: 'Left' });
+  $('#btn-start-mouse').click();
+  scene.clear();
+  state.pieces = [['K', 13], ['Q', 14], ['R', 0], ['B', 5], ['N', 10], ['P', 7]].map(([type, sq], i) => ({ id: 900 + i, type, sq }));
+  state.initial = clonePieces(state.pieces);
+  state.level = 7;
+  render({ spawn: true });
+  const wait = () => new Promise((r) => setTimeout(r, 200));
+  (async () => {
+    for (let i = 0; i < 12 && !scene.hand.rigged.ready('right'); i++) await wait();
+    await new Promise((r) => setTimeout(r, 1200));
+    const q = scene.squareToScreen(14, 1.0), k = scene.squareToScreen(10, 1.6);
+    for (let i = 0; i < 20 && !state.drag; i++) { hf(q, false); hf(q, true); await wait(); if (!state.drag) hf(q, false); }
+    await wait();
+    hf(k, true);
+    await wait();
+    hf(k, true);
+  })();
+}

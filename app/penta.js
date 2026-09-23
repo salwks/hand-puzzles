@@ -485,3 +485,34 @@ newPuzzle();
 
 // Debug/test handle
 window.__penta = { state, scene, NAMES, solve, cellsOf, hand: shell.injectHandFrame, transform, newPuzzle };
+
+// ---------- ?demo: a staged scene for screenshots (no camera needed) ----------
+if (new URLSearchParams(location.search).has('demo')) {
+  const LM = [[0.5,0.80,0],[0.56,0.74,-0.02],[0.60,0.66,-0.04],[0.60,0.58,-0.06],[0.57,0.52,-0.08],[0.54,0.58,-0.02],[0.55,0.49,-0.05],[0.555,0.47,-0.08],[0.56,0.505,-0.1],[0.50,0.57,-0.02],[0.50,0.47,-0.03],[0.50,0.41,-0.04],[0.50,0.36,-0.05],[0.46,0.58,-0.02],[0.455,0.49,-0.03],[0.45,0.43,-0.04],[0.45,0.39,-0.05],[0.425,0.61,-0.02],[0.415,0.54,-0.03],[0.41,0.49,-0.04],[0.405,0.45,-0.05]].map(([x, y, z]) => ({ x, y, z }));
+  const hf = (p, pinching) => shell.injectHandFrame({ present: true, x: p.x / innerWidth, y: p.y / innerHeight, pinching,
+    landmarks: LM, pinchRatio: pinching ? 0.15 : 0.6, pinchDown: 0.3, pinchUp: 0.44, handedness: 'Left', roll: 0, facing: 1, speed: 0.1 });
+  $('#btn-start-mouse').click();
+  state.level = 9;
+  newPuzzle();
+  const wait = (ms = 200) => new Promise((r) => setTimeout(r, ms));
+  (async () => {
+    for (let i = 0; i < 12 && !scene.hand.rigged.ready('right'); i++) await wait();
+    await wait(1500);
+    const sol = solve(state.cols, state.pieces.map((p) => p.name));
+    const put = async (step, release) => {
+      state.selected = step.name;
+      for (let g = 0; g < 4 && pieceOf(step.name).rot !== step.pose.rot; g++) { transform({ turn: 1 }); await wait(); }
+      if (pieceOf(step.name).flip !== step.pose.flip) { transform({ flip: true }); await wait(400); }
+      await wait(400);
+      const cur = pieceOf(step.name);
+      const from = scene.toScreen(cur.x, 0.21, cur.z), to = scene.cellToScreen(step.pose.x, step.pose.z, 0.21);
+      for (let i = 0; i < 20 && !state.drag; i++) { hf(from, false); hf(from, true); await wait(); if (!state.drag) hf(from, false); }
+      await wait(300);
+      hf(to, true);
+      await wait(400);
+      hf(to, true);
+      if (release) { hf(to, false); await wait(600); }
+    };
+    for (let i = 0; i < 4; i++) await put(sol[i], i < 3);
+  })();
+}
