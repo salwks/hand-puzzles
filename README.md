@@ -8,6 +8,7 @@
   - 뒤집기: 집은 채 손을 뒤집기(손바닥↔손등, 2D 관절 배치의 부호로 판정) · 우클릭 · F · 도크 버튼
   - 조각은 집은 지점을 축으로 돌고 뒤집히며, 놓일 자리는 판 위에 초록(가능)/붉은(불가) 자국으로 표시된다.
 - **마작** (`mahjong.html`) — AI 세 명과 치는 리치 마작 동풍전. 산에서 패를 집어 오고, 하천에 버리고, 버릴 패를 비틀어 눕히면 리치, 남의 버림패를 끌어오면 퐁·치·깡·론.
+- **고스톱** (`gostop.html`) — AI 두 명과 치는 3인 고스톱. 손패를 집어 같은 달 위에 내려치고(빠를수록 세게 '짝!'), 더미를 집어 뒤집고, 엄지 척은 고 · 손바닥은 스톱.
 - `index.html` — 게임 선택 화면.
 
 ## 실행
@@ -54,6 +55,9 @@ python3 -m venv .venv-wilor && .venv-wilor/bin/pip install setuptools wheel nump
 
 마작
 - `app/mj-logic.js` — 샹텐, 대기, 분해, 역 24종, 부수, 점수, 울기, AI 버림패 (`tools/test-mj-logic.mjs`) · `app/mj-scene.js` — 펠트 테이블, 2층 패(상아·비취), 산·손패·하천·울기 배치. 패 그림은 [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)(CC0, `assets/tiles/`) · `app/mj.js` — 대국 진행, 울기 창, 리치, 화료·유국 정산, AI · `app/sound.js` — 효과음·징글. 녹음 샘플은 [Kenney](https://kenney.nl) Casino Audio · Impact Sounds · Music Jingles (CC0, `assets/sfx/`)
+
+고스톱
+- `app/gs-logic.js` — 화투 48장, 한 턴 판정(뻑·쪽·따닥·싹쓸이·폭탄·흔들기), 점수, 고 배수, 광박·피박·고박·나가리 정산, AI (`tools/test-gs-logic.mjs`) · `app/gs-scene.js` — 담요 테이블, 화투 카드, 내려치기·흔들림 · `app/gs.js` — 판 진행, 고/스톱 손 모양 인식, 가이드. 화투 그림은 Wikimedia Commons [SVG Hwatu](https://commons.wikimedia.org/wiki/Category:SVG_Hwatu) (CC BY-SA 4.0, `assets/hwatu/`)
 
 ## 손 인식 진단 로그
 

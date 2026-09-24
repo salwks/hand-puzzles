@@ -41,6 +41,11 @@ export const CARDS = DECK.flatMap((cards, m) => cards.map(([file, kind, x = {}],
 })));
 
 export const monthOf = (id) => (id >> 2) + 1;
+/** Korean object particle: 을 after a final consonant, 를 after a vowel. */
+export const eul = (word) => {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  return word + (c >= 0 && c <= 11171 && c % 28 ? '을' : '를');
+};
 export const cardName = (id) => CARDS[id].name;
 
 export function shuffled(rng = Math.random) {
@@ -410,7 +415,7 @@ export function rankHand(st, p) {
       value = cardValue(st, p, id) + cardValue(st, p, pick);
       // leaving the month's last card out there lets the next player finish it
       if (on.length === 1 && unseenMonth[m] >= 1 && inHand === 1) value -= 0.5;
-      reason = `${CARDS[pick].name}${on.length === 2 ? '(둘 중 좋은 쪽)' : ''}을 가져옵니다`;
+      reason = `${eul(CARDS[pick].name)}${on.length === 2 ? ' (둘 중 좋은 쪽)' : ''} 가져옵니다`;
     } else {
       // no match: throwing it gives the others a card; prefer cheap ones nobody needs
       const risk = Math.max(...[0, 1, 2].filter((o) => o !== p).map((o) => cardValue(st, o, id)));

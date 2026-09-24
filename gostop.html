@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>고스톱</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@400;600&display=swap">
+  <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body class="mj gs">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+      <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+      <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+      <symbol id="i-mouse" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+      <symbol id="i-turn-left" viewBox="0 0 24 24"><path d="M4 5v5h5"/><path d="M4.6 10A8 8 0 1 1 5 15.5"/></symbol>
+      <symbol id="i-turn-right" viewBox="0 0 24 24"><path d="M20 5v5h-5"/><path d="M19.4 10A8 8 0 1 0 19 15.5"/></symbol>
+      <symbol id="i-flip" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7L3 12l5 5z"/><path d="M16 7l5 5-5 5z"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
+    </defs>
+  </svg>
+
+  <canvas id="stage" aria-label="고스톱 판"></canvas>
+
+  <div id="app">
+    <header id="hud">
+      <a class="back" href="./"><svg class="icon"><use href="#i-back"/></svg><span>게임 선택</span></a>
+      <div class="overline">HWATU · GO-STOP</div>
+      <h1>고스톱</h1>
+      <button id="b-sound" class="btn small sound-toggle" aria-label="소리 켜기/끄기"></button>
+      <dl class="stats">
+        <div><dt>이번 판 점수 <span id="my-go" class="gold"></span></dt><dd><span id="my-score">0</span><small> / 3점</small></dd></div>
+        <div><dt>내 돈 · 점당 100</dt><dd id="money" class="gold">10,000</dd></div>
+        <div><dt>판 <span id="nagari" class="gold"></span></dt><dd id="round" class="serif">01</dd></div>
+        <div><dt>더미</dt><dd id="left">48</dd></div>
+      </dl>
+    </header>
+
+    <div id="banner" role="status" aria-live="polite"><i class="gem"></i><span id="banner-text"></span></div>
+
+    <footer>
+      <div id="my-say" class="my-say"></div>
+    </footer>
+  </div>
+
+  <div id="tile-tags"></div>
+  <div id="seats">
+    <div class="mj-seat" id="seat-1"><div class="say"></div><span class="nm">강 사장</span><span class="pts"></span><span class="st"></span></div>
+    <div class="mj-seat" id="seat-2"><div class="say"></div><span class="nm">도 박사</span><span class="pts"></span><span class="st"></span></div>
+  </div>
+
+  <div id="big-say" hidden></div>
+
+  <aside id="hint" aria-label="가이드">
+    <div class="hint-head"><div class="overline" id="hint-title">GUIDE</div><button id="guide-toggle" class="btn small">가이드 끄기</button></div>
+    <div id="guide-body"></div>
+    <p class="fine">패를 집어 <b>빠르게 내려칠수록</b> 세게 '짝!' 붙습니다. 짝이 되는 바닥 패는 금빛으로 빛납니다.</p>
+  </aside>
+
+  <section id="decide" class="modal" hidden>
+    <div class="card wide gs-decide">
+      <div class="overline">YOU SCORED</div>
+      <h2><span id="dec-score"></span>점 났습니다</h2>
+      <div id="dec-parts"></div>
+      <div class="dec-choices">
+        <button id="dec-btn-go" class="dec-btn go" aria-label="고 — 엄지를 올리세요">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v11"/><path d="M3 10h4v11H3z"/><path d="M7 10l4-7c1.3 0 2.3 1 2 2.4L12.4 9H19a2 2 0 0 1 2 2.3l-1.2 7.2A2 2 0 0 1 17.8 20H7"/></svg>
+          <b>고</b><span>엄지를 올리세요</span><small id="dec-go"></small><i class="hold"></i>
+        </button>
+        <button id="dec-btn-stop" class="dec-btn stop" aria-label="스톱 — 손바닥을 펴세요">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5V4a1.5 1.5 0 0 1 3 0v8"/><path d="M14 11.5V5.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 9.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.6 15a1.6 1.6 0 0 1 2.4-2l2 2V13"/></svg>
+          <b>스톱</b><span>손바닥을 펴 보이세요</span><small id="dec-stop"></small><i class="hold"></i>
+        </button>
+      </div>
+      <p class="dec-risk" id="dec-risk"></p>
+      <p class="fine"><span id="dec-sign">엄지를 올리거나 손바닥을 펴 보이세요</span> · 1초 유지하면 결정 · <span id="dec-left"></span></p>
+    </div>
+  </section>
+
+  <aside id="cam" class="off">
+    <video id="video" playsinline muted></video>
+    <div class="preview" id="cam-slot">
+      <canvas id="cam-canvas" width="320" height="240"></canvas>
+      <div class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></div>
+      <div id="cam-status"></div>
+    </div>
+    <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+    <button id="btn-tune" class="btn small"><svg class="icon"><use href="#i-gear"/></svg><span>손 인식 보정</span></button>
+    <button id="btn-cam-on" class="btn small"><svg class="icon"><use href="#i-camera"/></svg><span>카메라 켜기</span></button>
+  </aside>
+
+  <aside id="drawer" hidden aria-label="손 인식 보정">
+    <div class="drawer-head">
+      <div>
+        <div class="overline">CALIBRATION</div>
+        <h2>손 인식 보정</h2>
+      </div>
+      <button id="btn-drawer-close" class="btn square" aria-label="닫기"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="preview large" id="drawer-slot"></div>
+    <div class="drawer-status"><span class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></span><span id="hand-side"></span></div>
+    <div class="field">
+      <div class="field-head"><span>핀치</span><span id="pinch-state"></span></div>
+      <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+      <div class="gauge-labels"><span>붙임</span><span>밝은 선 집기 · 어두운 선 놓기</span><span>벌림</span></div>
+    </div>
+    <hr>
+    <div class="field">
+      <div class="field-head"><label for="tune-smooth">떨림 보정</label><output id="tune-smooth-value"></output></div>
+      <input id="tune-smooth" type="range" min="0" max="1" step="0.05">
+      <p>올리면 안정적이지만 조금 느려집니다.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-pinch">핀치 감도</label><output id="tune-pinch-value"></output></div>
+      <input id="tune-pinch" type="range" min="0.6" max="1.6" step="0.05">
+      <p>잘 안 집히면 올리고, 저절로 집히면 내리세요.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-wilor">WiLoR 3D 보정</label><input id="tune-wilor" type="checkbox"></div>
+      <p id="engine-state"></p>
+      <p>서버(<code>wilor_server.py</code>)가 켜져 있으면 손바닥 방향과 손목 각도를 3D 모델로 보정합니다. 없으면 자동으로 MediaPipe만 씁니다.</p>
+    </div>
+    <div class="drawer-foot">
+      <span id="log-status">진단 로그 대기 중</span>
+      <button id="btn-cam" class="btn small">카메라 켜기</button>
+    </div>
+  </aside>
+
+  <div id="cursor" hidden></div>
+  <div id="toast" hidden></div>
+
+  <section id="result" class="modal" hidden>
+    <div class="card wide">
+      <div class="overline" id="res-over"></div>
+      <h2 id="res-title"></h2>
+      <div id="res-tiles" class="gs-row"></div>
+      <div id="res-yaku"></div>
+      <div id="res-points"></div>
+      <dl id="res-scores"></dl>
+      <div class="stack row2"><button id="res-quit" class="btn">그만하기</button><button id="res-next" class="btn primary tall">다음 판</button></div>
+    </div>
+  </section>
+
+  <section id="modal-end" class="modal" hidden>
+    <div class="card"><div class="overline">FINAL</div><h2 id="end-title"></h2><div class="ornament"><i class="gem"></i></div>
+      <dl id="end-scores"></dl>
+      <div class="stack"><button id="end-again" class="btn primary tall">새 게임</button><a class="btn" href="./">게임 선택으로</a></div></div>
+  </section>
+
+  <section id="modal-start" class="start">
+    <div class="start-copy">
+      <div class="overline">HWATU · GO-STOP</div>
+      <h2>고스톱</h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <p class="lead">3인 고스톱. 상대는 AI 두 명, 점당 100.<br>화투는 모두 손으로 집어서 칩니다.</p>
+      <ol class="steps">
+        <li><b>01</b><div><strong>손패를 집어 같은 달 위에 내려치기</strong><span>짝이 되는 바닥 패가 금빛으로 빛납니다. 세게 칠수록 짝!</span></div></li>
+        <li><b>02</b><div><strong>가운데 더미를 집어 뒤집기</strong><span>뒤집은 패도 같은 달이 있으면 가져옵니다.</span></div></li>
+        <li><b>03</b><div><strong>3점이 나면 엄지 척은 고, 손바닥은 스톱</strong><span>1초 유지하면 결정됩니다. 버튼도 됩니다.</span></div></li>
+      </ol>
+      <label class="guide-check"><input type="checkbox" id="guide-start" checked> <span><b>초보자 가이드</b> — 낼 패를 추천하고 이유와 3점까지 남은 길을 알려줍니다</span></label>
+      <div class="row">
+        <button id="btn-start-cam" class="btn primary"><svg class="icon"><use href="#i-camera"/></svg><span>카메라로 시작</span></button>
+        <button id="btn-start-mouse" class="btn"><svg class="icon"><use href="#i-mouse"/></svg><span>마우스로 시작</span></button>
+      </div>
+      <p class="fine">영상은 기기 밖으로 전송되지 않습니다. 손 인식은 브라우저 안에서만 처리됩니다. 화투 그림: Wikimedia Commons (CC BY-SA 4.0).</p>
+    </div>
+  </section>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="app/gs.js"></script>
+</body>
+</html>

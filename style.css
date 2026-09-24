@@ -344,7 +344,8 @@ body.hub { overflow: auto; }
 .hub-main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 48px; padding: clamp(32px, 7vh, 88px) var(--pad); }
 .hub-head { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .hub-head h1 { font-family: var(--serif); font-size: clamp(36px, 4.4vw, 58px); font-weight: 400; letter-spacing: 0.04em; }
-.hub-games { display: grid; grid-template-columns: repeat(3, minmax(0, 380px)); gap: 28px; }
+.hub-games { display: grid; grid-template-columns: repeat(4, minmax(0, 300px)); gap: 24px; }
+@media (max-width: 1360px) { .hub-games { grid-template-columns: repeat(2, minmax(0, 380px)); } }
 .game-card {
   display: flex;
   flex-direction: column;
@@ -494,3 +495,47 @@ body.mj #banner { animation: gold-breathe 3.2s ease-in-out infinite; }
 
 .sound-toggle { pointer-events: auto; margin-top: 8px; }
 .sound-toggle.off { opacity: 0.55; }
+
+/* ---------- 고스톱 ---------- */
+.gs-card { width: 34px; height: 55px; border-radius: 3px; box-shadow: 0 2px 5px rgba(0,0,0,0.45); display: inline-block; vertical-align: middle; }
+.gs-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 14px 0 6px; }
+.gs-group { display: inline-flex; }
+.gs-group .gs-card + .gs-card { margin-left: -16px; }
+#result .card.enter .gs-group { animation: fade-up 0.4s ease-out 0.25s both; }
+#result .card.mine .gs-card { box-shadow: 0 0 0 1px var(--gold-hi), 0 0 14px rgba(242,207,122,0.45); }
+.bak { font-style: normal; font-size: 11px; padding: 1px 6px; margin-left: 6px; background: #c9454b; color: var(--ink, #ede6d8); }
+.stack.row2 { flex-direction: row; justify-content: flex-end; gap: 12px; }
+.mj-seat.danger .st { color: #f0a3a6; }
+body.gs #hud dd small { font-size: 0.55em; color: var(--muted, #9c9385); }
+#guide-body .why { color: #bdb4a5; font-size: 13px; }
+#guide-body .goal { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: #bdb4a5; }
+#guide-body b.rec { color: #f2d08a; }
+
+#big-say { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 30; pointer-events: none;
+  font-family: 'Noto Serif KR', serif; font-size: 88px; font-weight: 600; letter-spacing: 0.06em; color: #f2d08a;
+  text-shadow: 0 0 30px rgba(242,208,138,0.55), 0 6px 30px rgba(0,0,0,0.8); white-space: nowrap; }
+#big-say.pop { animation: big-pop 1.3s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+@keyframes big-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(0.94); }
+  24% { transform: translate(-50%, -50%) scale(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(1); }
+}
+
+.gs-decide { text-align: center; }
+.gs-decide h2 { font-size: 40px; }
+.gs-decide h2 #dec-score { font-family: 'Cormorant Garamond', serif; font-size: 1.8em; color: #f2d08a; margin-right: 6px; }
+#dec-parts { display: flex; gap: 18px; justify-content: center; margin: 6px 0 22px; color: #bdb4a5; font-size: 14px; }
+#dec-parts b { color: #f2d08a; margin-left: 6px; font-family: 'Cormorant Garamond', serif; font-size: 18px; }
+.dec-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.dec-btn { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 16px 22px;
+  background: #141210; color: #ede6d8; border: 1px solid #4a443c; cursor: pointer; font: inherit; --hold: 0; }
+.dec-btn svg { width: 64px; height: 64px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.dec-btn b { font-family: 'Noto Serif KR', serif; font-size: 40px; letter-spacing: 0.1em; font-weight: 600; }
+.dec-btn span { font-size: 13px; color: #bdb4a5; }
+.dec-btn small { font-size: 12px; color: #9c9385; min-height: 1.2em; }
+.dec-btn.go { color: #f2d08a; border-color: #f2d08a; animation: gold-breathe 2.2s ease-in-out infinite; }
+.dec-btn:hover, .dec-btn.hand-hover { background: #1c1915; }
+.dec-btn .hold { position: absolute; left: 0; bottom: 0; height: 4px; width: calc(var(--hold) * 100%); background: #f2d08a; transition: width 0.08s linear; }
+.dec-risk { margin: 16px 0 4px; font-size: 13.5px; color: #f0a3a6; }

@@ -4,6 +4,7 @@
 const BANKS = {
   clack: 4, lift: 6, stack: 6, lay: 3, knock: 3,
   bell: 1, start: 1, win: 1, win2: 1, hit: 1, lose: 1, draw: 1, first: 1, over: 1,
+  slap: 4, slide: 6, shove: 4, shuffle: 1, fan: 2, // cards (화투)
 };
 
 let ctx = null, master = null, room = null;
