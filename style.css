@@ -593,3 +593,7 @@ body.gs #hud dd small { font-size: 0.55em; color: var(--muted, #9c9385); }
 #peek .gs-card { width: 34px; height: 55px; }
 #peek .gs-group .gs-card + .gs-card { margin-left: -12px; }
 @media (max-width: 760px) { #peek-body { grid-template-columns: 1fr; } }
+
+/* ---------- 물놀이 ---------- */
+.water-tools { display: flex; gap: 8px; margin-top: 8px; pointer-events: auto; }
+body.water #banner { pointer-events: none; }
