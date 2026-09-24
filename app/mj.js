@@ -5,7 +5,7 @@ import {
   makeWall, typeOf, counts, shanten, waits, evaluate, chiOptions, ponOK, kanOK, bestDiscard,
   tileName, EAST, HAKU, isHonor, isTerminal, isYaochu, ukeire,
 } from './mj-logic.js';
-import { MahjongScene, drawFace, TW, TH } from './mj-scene.js';
+import { MahjongScene, tileSrc, TW, TH } from './mj-scene.js';
 import { createShell } from './shell.js';
 import { COLOR } from './stage.js';
 
@@ -454,10 +454,8 @@ async function exhaustiveDraw() {
   state.nextDealerKeeps = tenpai.includes(state.dealer);
 }
 
-const faceUrls = new Map();
 function faceImg(t) {
-  if (!faceUrls.has(t)) faceUrls.set(t, drawFace(t).toDataURL());
-  return `<span class="mj-tile"><img src="${faceUrls.get(t)}" alt="${tileName(t)}"></span>`;
+  return `<span class="mj-tile"><img src="${tileSrc(t)}" alt="${tileName(t)}"></span>`;
 }
 
 function showResult({ title, over, hand = null, melds = [], winTile = null, result = null, text = '', delta }) {

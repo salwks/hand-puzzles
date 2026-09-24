@@ -16,81 +16,36 @@ const CARRY_Y = 0.75;
 export const SEAT_YAW = [0, Math.PI / 2, Math.PI, -Math.PI / 2]; // me, right, across, left
 
 // ---------- tile art ----------
+// Faces are FluffyStuff's riichi-mahjong-tiles (CC0, public domain), in assets/tiles/.
 
-const FACE_W = 256, FACE_H = 346;
-const KANJI = '一二三四五六七八九';
-const HONOR = ['東', '南', '西', '北', '', '發', '中'];
-const INK = '#1b1f2a', RED = '#a8231c', GREEN = '#1f6b44', BLUE = '#1c4f8c';
+const FILES = [
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `Man${n}`), ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `Pin${n}`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `Sou${n}`), 'Ton', 'Nan', 'Shaa', 'Pei', 'Haku', 'Hatsu', 'Chun',
+];
+/** URL of a tile face image (also used by the HTML overlays). */
+export const tileSrc = (t) => `assets/tiles/${FILES[t]}.svg`;
 
-// Standard pip layouts for pin (circles) and sou (bamboo), in a 0..1 box.
-const PIPS = {
-  1: [[0.5, 0.5]], 2: [[0.5, 0.26], [0.5, 0.74]], 3: [[0.22, 0.2], [0.5, 0.5], [0.78, 0.8]],
-  4: [[0.28, 0.26], [0.72, 0.26], [0.28, 0.74], [0.72, 0.74]],
-  5: [[0.26, 0.22], [0.74, 0.22], [0.5, 0.5], [0.26, 0.78], [0.74, 0.78]],
-  6: [[0.3, 0.2], [0.7, 0.2], [0.3, 0.52], [0.7, 0.52], [0.3, 0.82], [0.7, 0.82]],
-  7: [[0.2, 0.14], [0.5, 0.24], [0.8, 0.34], [0.3, 0.58], [0.7, 0.58], [0.3, 0.84], [0.7, 0.84]],
-  8: [[0.3, 0.14], [0.7, 0.14], [0.3, 0.38], [0.7, 0.38], [0.3, 0.62], [0.7, 0.62], [0.3, 0.86], [0.7, 0.86]],
-  9: [[0.2, 0.18], [0.5, 0.18], [0.8, 0.18], [0.2, 0.5], [0.5, 0.5], [0.8, 0.5], [0.2, 0.82], [0.5, 0.82], [0.8, 0.82]],
-};
-
-/** Draws a tile face (transparent background) — used for the 3D decal and for the HTML overlays. */
-export function drawFace(t, canvas = document.createElement('canvas')) {
-  canvas.width = FACE_W; canvas.height = FACE_H;
-  const g = canvas.getContext('2d');
-  g.clearRect(0, 0, FACE_W, FACE_H);
-  // carved look: a faint dark offset under every mark
-  const carve = (fn) => { g.save(); g.translate(2, 3); g.globalAlpha = 0.18; fn('#000'); g.restore(); fn(null); };
-  const text = (s, x, y, size, color) => carve((c) => {
-    g.fillStyle = c ?? color; g.font = `700 ${size}px "Noto Serif KR", "Songti SC", serif`;
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s, x, y);
-  });
-  const box = { x: 28, y: 30, w: FACE_W - 56, h: FACE_H - 60 };
-  if (t < 9) {
-    text(KANJI[t], FACE_W / 2, 108, 120, INK);
-    text('萬', FACE_W / 2, 250, 120, RED);
-  } else if (t < 18) {
-    const n = t - 8, r = n === 1 ? 70 : n <= 4 ? 40 : n <= 6 ? 32 : 26;
-    for (const [i, [px, py]] of PIPS[n].entries()) {
-      const x = box.x + px * box.w, y = box.y + py * box.h;
-      const col = n === 1 ? RED : (n === 5 && i === 2) || (n === 9 && (i >= 3 && i <= 5)) || (n === 7 && i < 3) ? RED : i % 2 ? BLUE : GREEN;
-      carve((c) => {
-        g.strokeStyle = c ?? col; g.lineWidth = r * 0.22; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
-        g.fillStyle = c ?? col; g.beginPath(); g.arc(x, y, r * 0.38, 0, Math.PI * 2); g.fill();
-      });
-    }
-  } else if (t < 27) {
-    const n = t - 17;
-    if (n === 1) { // the "peacock": a single ornate stick
-      carve((c) => { g.fillStyle = c ?? GREEN; g.fillRect(FACE_W / 2 - 22, 60, 44, 230); g.fillStyle = c ?? RED; g.beginPath(); g.arc(FACE_W / 2, 70, 36, 0, Math.PI * 2); g.fill(); });
-    } else {
-      const bw = 18, bh = n <= 3 ? 110 : n <= 6 ? 76 : 58;
-      for (const [i, [px, py]] of PIPS[n].entries()) {
-        const x = box.x + px * box.w, y = box.y + py * box.h;
-        const col = (n === 5 && i === 2) || (n === 7 && i === 0) || (n === 9 && i % 3 === 1) ? RED : GREEN;
-        carve((c) => {
-          g.fillStyle = c ?? col; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
-          g.fillStyle = c ?? '#f1ead8'; g.fillRect(x - bw / 2, y - 2, bw, 4);
-        });
-      }
-    }
-  } else if (t === 31) { // 白: an empty blue frame
-    carve((c) => { g.strokeStyle = c ?? BLUE; g.lineWidth = 10; g.strokeRect(58, 64, FACE_W - 116, FACE_H - 128); });
-  } else {
-    text(HONOR[t - 27], FACE_W / 2, FACE_H / 2 + 6, 170, t === 32 ? GREEN : t === 33 ? RED : INK);
-  }
-  return canvas;
-}
-
+const FACE_W = 300, FACE_H = 400;
 const faceTex = new Map();
 function faceTexture(t) {
   if (!faceTex.has(t)) {
-    const tex = new THREE.CanvasTexture(drawFace(t));
+    const canvas = document.createElement('canvas');
+    canvas.width = FACE_W * 2; canvas.height = FACE_H * 2; // 2x for crisp faces up close
+    const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 8;
+    const img = new Image();
+    img.onload = () => {
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      tex.needsUpdate = true;
+    };
+    img.src = tileSrc(t);
     faceTex.set(t, tex);
   }
   return faceTex.get(t);
 }
+// Start loading every face right away so none pops in mid-game.
+for (let t = 0; t < 34; t++) faceTexture(t);
 
 // ---------- tile mesh ----------
 
@@ -102,7 +57,7 @@ const tileGeo = (() => {
   back.translate(0, 0, -TD / 2 + BACK_D / 2);
   return mergeGeometries([body, back], true);
 })();
-const decalGeo = new THREE.PlaneGeometry(TW * 0.84, TH * 0.86);
+const decalGeo = new THREE.PlaneGeometry(TW * 0.94, TH * 0.94);
 
 class TileObj {
   constructor(id) {

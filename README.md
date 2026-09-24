@@ -53,7 +53,7 @@ python3 -m venv .venv-wilor && .venv-wilor/bin/pip install setuptools wheel nump
 보정 패널의 「WiLoR 3D 보정」 스위치로 끄고 켤 수 있다. 서버·클라이언트: `wilor_server.py`, `app/wilor-client.js`.
 
 마작
-- `app/mj-logic.js` — 샹텐, 대기, 분해, 역 24종, 부수, 점수, 울기, AI 버림패 (`tools/test-mj-logic.mjs`) · `app/mj-scene.js` — 펠트 테이블, 2층 패(상아·비취)와 음각 문양, 산·손패·하천·울기 배치 · `app/mj.js` — 대국 진행, 울기 창, 리치, 화료·유국 정산, AI
+- `app/mj-logic.js` — 샹텐, 대기, 분해, 역 24종, 부수, 점수, 울기, AI 버림패 (`tools/test-mj-logic.mjs`) · `app/mj-scene.js` — 펠트 테이블, 2층 패(상아·비취), 산·손패·하천·울기 배치. 패 그림은 [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)(CC0, `assets/tiles/`) · `app/mj.js` — 대국 진행, 울기 창, 리치, 화료·유국 정산, AI
 
 ## 손 인식 진단 로그
 
