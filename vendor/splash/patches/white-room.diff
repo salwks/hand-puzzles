@@ -1,0 +1,65 @@
+diff --git a/render/bgColor.wgsl b/render/bgColor.wgsl
+index d9c0c75..7b999a6 100644
+--- a/render/bgColor.wgsl
++++ b/render/bgColor.wgsl
+@@ -41,28 +41,7 @@ fn rayPlaneIntersection(rayOrigin: vec3f, rayDir: vec3f) -> vec3f {
+ 
+ @fragment
+ fn fs(input: FragmentInput) -> @location(0) vec4f {
+-    let cameraPos = getCameraPosition();
+-    let rayDirWorld = normalize((uniforms.invViewMatrix * vec4f(computeViewPosFromUVDepth(input.uv, 1.0), 0.)).xyz); // depth は適当
+-    let bgColor = textureSampleLevel(envmapTexture, textureSampler, rayDirWorld, 0.).rgb;
+-    if (abs(rayDirWorld.y) < 1e-6) { // y = 0 と交差しない
+-        return vec4f(bgColor, 1.);
+-    } 
+-
+-    let t = -cameraPos.y / rayDirWorld.y;
+-    if (t < 0) {
+-        return vec4f(bgColor, 1.);
+-    }
+-    let rayHitPos = cameraPos + t * rayDirWorld;
+-    let gridSize = 16.0;
+-    let lineThickness = 0.2; 
+-
+-    let isLineX = abs(fract(rayHitPos.x / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLineZ = abs(fract(rayHitPos.z / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLine = isLineX || isLineZ;
+-
+-    let boardColor = vec3(0.6); 
+-    let lineColor = vec3(0.5); 
+-    var finalColor = select(boardColor, lineColor, isLine);
+-    finalColor = select(bgColor, finalColor, abs(rayHitPos.x) < 3e2 && abs(rayHitPos.z) < 3e2);
+-    return vec4f(finalColor, 1.);
+-}
+\ No newline at end of file
++    // plain white behind the water (hand-puzzles); its bindings are kept for the shared layout
++    let env = textureSampleLevel(envmapTexture, textureSampler, vec3f(0., 1., 0.), 0.).rgb;
++    return vec4f(max(env + uniforms.texelSize.x, vec3f(1.)), 1.); // (both bindings must stay in use)
++}
+diff --git a/render/fluid.wgsl b/render/fluid.wgsl
+index 9549271..57356b9 100644
+--- a/render/fluid.wgsl
++++ b/render/fluid.wgsl
+@@ -52,21 +52,7 @@ fn calcReflactedTexCoord(surfacePosView: vec3f, refractionDirView: vec3f, thickn
+ }
+ 
+ fn floorColor(surfacePos: vec3f, refractDir: vec3f) -> vec4f {
+-    let t = -surfacePos.y / refractDir.y;
+-    let rayHitPos = surfacePos + t * refractDir;
+-
+-    let gridSize = 16.0;
+-    let lineThickness = 0.2; 
+-
+-    let isLineX = abs(fract(rayHitPos.x / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLineZ = abs(fract(rayHitPos.z / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLine = isLineX || isLineZ;
+-
+-    let boardColor = vec3(0.6); 
+-    let lineColor = vec3(0.5); 
+-    let finalColor = select(boardColor, lineColor, isLine);
+-
+-    return vec4f(finalColor, f32(abs(rayHitPos.x) < 3e2 && abs(rayHitPos.z) < 3e2));
++    return vec4f(1., 1., 1., 1.); // a plain white floor under the water (hand-puzzles)
+ }
+ 
+ @fragment

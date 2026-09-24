@@ -30,19 +30,18 @@ export interface Tank {
   box: number[]
 }
 
-/** The sky and sand the water reflects: a cubemap face ('side' fades sky → horizon haze → sand). */
-function skyFace(size: number, kind: 'side' | 'up' | 'down'): HTMLCanvasElement {
+/** What the water reflects: a plain white room, a little greyer toward the floor. */
+function roomFace(size: number, kind: 'side' | 'up' | 'down'): HTMLCanvasElement {
   const c = document.createElement('canvas')
   c.width = c.height = size
   const g = c.getContext('2d')!
-  if (kind === 'up') g.fillStyle = '#80add8'
-  else if (kind === 'down') g.fillStyle = '#c9ae84'
+  if (kind === 'up') g.fillStyle = '#ffffff'
+  else if (kind === 'down') g.fillStyle = '#dfe2e4'
   else {
     const grad = g.createLinearGradient(0, 0, 0, size)
-    grad.addColorStop(0, '#8cb4da')
-    grad.addColorStop(0.46, '#efe6d6')
-    grad.addColorStop(0.52, '#d9c29a')
-    grad.addColorStop(1, '#c9ae84')
+    grad.addColorStop(0, '#ffffff')
+    grad.addColorStop(0.5, '#eef0f1')
+    grad.addColorStop(1, '#dfe2e4')
     g.fillStyle = grad
   }
   g.fillRect(0, 0, size, size)
@@ -65,9 +64,9 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   const format = navigator.gpu.getPreferredCanvasFormat()
   context.configure({ device, format })
 
-  // environment cubemap for reflections: sky over sand (order +X, -X, +Y, -Y, +Z, -Z)
+  // environment cubemap for reflections: a white room (order +X, -X, +Y, -Y, +Z, -Z)
   const faces = ['side', 'side', 'up', 'down', 'side', 'side'] as const
-  const bitmaps = await Promise.all(faces.map((kind) => createImageBitmap(skyFace(256, kind))))
+  const bitmaps = await Promise.all(faces.map((kind) => createImageBitmap(roomFace(64, kind))))
   const cubemap = device.createTexture({
     dimension: '2d', size: [bitmaps[0].width, bitmaps[0].height, 6], format: 'rgba8unorm',
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
