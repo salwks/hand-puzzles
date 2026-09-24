@@ -293,6 +293,23 @@ export class SutdaScene extends Stage {
 
   dist(p, spot) { return p ? Math.hypot(p.x - spot.x, p.z - spot.z) : Infinity; }
 
+  /** A chip flies from a seat into the pot. */
+  flyChip(seat) {
+    const m = new THREE.Mesh(this.chipGeo, this.chipMat);
+    m.castShadow = true;
+    const s = SEATS[seat], from = new THREE.Vector3(s.x * 0.75, 0.35, s.z * 0.8);
+    m.position.copy(from);
+    this.scene.add(m);
+    this.tween({
+      dur: 0.45,
+      update: (k) => {
+        const e = easeOutCubic(k);
+        m.position.set(from.x + (POT.x - from.x) * e, 0.35 + Math.sin(Math.PI * k) * 0.7, from.z + (POT.z - from.z) * e);
+      },
+      done: () => this.scene.remove(m),
+    });
+  }
+
   // ---------- look ----------
 
   setGlow(card, glow) {

@@ -36,7 +36,7 @@ const josa = (word, withFinal, without) => {
 const state = {
   players: [], round: 0, dealer: 0, deck: [], pot: 0, carry: 0,
   phase: 'idle', turn: null, currentBet: 0, raises: 0, street: 0, // street 0: after the first card, 1: after the second
-  sleeve: null, drag: null, hover: null, read: new Set(),
+  sleeve: null, drag: null, hover: null, read: new Set(), known: new Set(), // known: my cards I have seen
   fakePending: false, standoff: null, stats: { best: START_MONEY, sleights: 0 },
 };
 const me = () => state.players[0];
@@ -93,6 +93,7 @@ async function startRound() {
   if (!ais().length) return gameOver('판을 평정했습니다', '상대가 모두 판을 떠났습니다.', true);
 
   state.read.clear();
+  state.known.clear();
   state.fakePending = false;
   state.pot = state.carry;
   state.carry = 0;
@@ -121,7 +122,7 @@ async function dealStreet() {
     const p = state.players[(state.dealer + k) % 4];
     if (!p.inRound || p.folded || (p.seat === 0 && state.dealer === 0)) continue;
     deal(p, state.deck.shift());
-    await sleep(220);
+    await sleep(160);
   }
   if (state.dealer === 0 && !me().folded) {
     state.phase = 'selfdeal';
@@ -174,7 +175,7 @@ function nextTurn() {
   }
   render();
   const p = state.players[state.turn];
-  if (p.ai) setTimeout(() => { if (state.phase === 'bet' && state.turn === p.seat) aiAct(p); }, 650 + Math.random() * 700);
+  if (p.ai) setTimeout(() => { if (state.phase === 'bet' && state.turn === p.seat) aiAct(p); }, 450 + Math.random() * 500);
 }
 
 function pay(p, amount) {
@@ -182,6 +183,7 @@ function pay(p, amount) {
   p.money -= a;
   p.bet += a;
   state.pot += a;
+  if (a > 0) scene.flyChip(p.seat);
   if (p.money === 0) p.allin = true;
 }
 
@@ -215,6 +217,7 @@ function act(p, action) {
     p.note = toCall > 0 ? '콜' : '체크';
   }
   p.acted = true;
+  p.sayAt = performance.now();
   log.event('bet', { seat: p.seat, action, pot: state.pot });
   nextTurn();
 }
@@ -281,6 +284,10 @@ setInterval(() => {
     if (p.gazing) { if (performance.now() > p.gazeUntil || !busy) p.gazing = false; }
     else if (busy && Math.random() < p.gaze * 0.12) { p.gazing = true; p.gazeUntil = performance.now() + 1500 + Math.random() * 2000; }
   }
+  const watcher = ais().filter((p) => p.gazing && !p.folded).sort((a, b) => b.sus - a.sus)[0];
+  const w = $('#watch');
+  w.textContent = !busy ? '' : watcher ? `${josa(watcher.name, '이', '가')} 보고 있습니다` : '지금 아무도 안 봅니다 — 기술을 쓸 때';
+  w.dataset.state = watcher ? 'watched' : 'clear';
   renderSeats();
 }, 250);
 
@@ -348,7 +355,7 @@ function startDrag(x, y) {
     state.drag = { kind: 'peek', card, i: h.i, y0: y, x0: x, t };
     scene.peeking = card;
   } else if (h.kind === 'chips') {
-    if (state.phase !== 'bet' || state.turn !== 0) return false;
+    if (state.phase !== 'bet' || state.turn !== 0 || !allKnown()) return false;
     state.drag = { kind: 'chips', t };
   } else return false;
   log.event('grab', { kind: state.drag.kind });
@@ -398,8 +405,11 @@ function endDrag(x, y) {
     }
   } else if (d.kind === 'peek') {
     scene.peeking = null;
-    const o = scene.obj(d.card);
-    if ((d.peek ?? 0) >= 0.75 && o && !o.faceUp) scene.setFaceUp(o, true);
+    // Like a real squeeze: once seen, the card drops back face-down and only the player knows it.
+    if ((d.peek ?? 0) >= 0.75 && !state.known.has(d.card.id)) {
+      state.known.add(d.card.id);
+      log.event('peeked', { card: d.card.id });
+    }
     scene.setPeek(d.card, 0);
   } else if (d.kind === 'carry') {
     scene.dropCarry();
@@ -429,6 +439,7 @@ function takeDealt(d) {
   const card = d.card;
   state.deck = state.deck.filter((c) => c !== card);
   deal(me(), card);
+  if (d.bottom) state.known.add(card.id); // the dealer saw the bottom card
   const ms = performance.now() - d.t;
   let witness = null, what = null;
   if (d.bottom) {
@@ -454,7 +465,8 @@ function swap(d) {
   hand[d.i] = fresh;
   scene.remove(old);
   const s = slot(0, d.i);
-  scene.place(fresh, { x: SLEEVE.x, z: SLEEVE.z, faceUp: true });
+  scene.place(fresh, { x: SLEEVE.x, z: SLEEVE.z, faceUp: false });
+  state.known.add(fresh.id);
   scene.moveTo(fresh, { ...s, dur: 0.3, arc: 0.2 });
   scene.setPick(fresh, { kind: 'mine', i: d.i });
   state.stats.sleights++;
@@ -617,7 +629,7 @@ function render(full = true) {
   $('#pot').textContent = fmt(state.pot);
   $('#round').textContent = String(state.round).padStart(2, '0');
   scene.setMoney(state.pot, m.money);
-  const myTurn = state.phase === 'bet' && state.turn === 0 && !m.folded;
+  const myTurn = state.phase === 'bet' && state.turn === 0 && !m.folded && allKnown();
   const toCall = state.currentBet - m.bet;
   $('#b-bet').hidden = !(myTurn && state.currentBet === 0);
   $('#b-call').textContent = toCall > 0 ? `콜 · ${fmt(Math.min(toCall, m.money))}` : '체크';
@@ -626,6 +638,12 @@ function render(full = true) {
   for (const id of ['#b-call', '#b-raise', '#b-half', '#b-die']) $(id).disabled = !myTurn;
   $('#b-raise').disabled = $('#b-half').disabled = !myTurn || state.raises >= 3;
   $('#b-next').hidden = state.phase !== 'done';
+  if (['deal', 'selfdeal', 'bet'].includes(state.phase)) {
+    for (const c of m.cards) scene.setGlow(c, state.known.has(c.id) || m.folded ? { color: 0, intensity: 0, pulse: false } : { color: COLOR.hover, intensity: 0.7, pulse: true });
+  }
+  const seen = m.cards.map((c) => (state.known.has(c.id) ? cardName(c) : '?'));
+  $('#myhand-cards').textContent = m.cards.length ? seen.join(' · ') : '—';
+  $('#myhand-name').textContent = m.cards.length === 2 && allKnown() ? handOf(m.cards).name : m.cards.length && !allKnown() ? '쪼아서 확인' : '';
   for (const id of ['#b-call', '#b-raise', '#b-half', '#b-die']) $(id).hidden = state.phase === 'done';
   const dealing = state.phase === 'selfdeal';
   $('#sk-bottom').dataset.state = dealing ? 'ready' : 'off';
@@ -646,7 +664,8 @@ function updateBanner() {
   else if (d?.kind === 'peek') { tone = 'held'; html = '천천히 들어 올리세요 — 끝까지 들면 패가 보입니다.'; }
   else if (d?.kind === 'carry') { tone = 'target'; html = `<b>소매</b>(오른쪽 검은 천)에 ${SWAP_MS / 1000}초 안에 놓으면 바꿔치기. 판 가운데로 던지면 다이.`; }
   else if (state.phase === 'selfdeal') { tone = 'hover'; html = `당신이 선입니다. 더미 <b>위</b>를 ${pinch} 내 앞에 ${state.street ? '둘째' : '첫'} 장 — 튀어나온 <b>밑장</b>을 집으면 밑장빼기.`; }
-  else if (state.phase === 'bet' && state.turn === 0) { tone = 'hover'; html = `당신 차례. 칩을 판 가운데로 밀면 ${state.currentBet > me().bet ? '콜' : '삥'}, 패를 가운데로 던지면 다이.`; }
+  else if (['bet', 'deal'].includes(state.phase) && !me().folded && me().cards.length && !allKnown()) { tone = 'hover'; html = `새 패가 왔습니다. <b>반짝이는 패</b>를 ${pinch} 위로 들어 올려 쪼세요.`; }
+  else if (state.phase === 'bet' && state.turn === 0) { tone = 'hover'; html = `<b>당신 차례</b> — 칩을 판 가운데로 밀면 ${state.currentBet > me().bet ? '콜' : '삥'}, 아래 버튼으로 하프·따당, 패를 가운데로 던지면 다이.`; }
   else if (state.phase === 'bet') html = `${state.street ? '둘째' : '첫'} 장 베팅 — ${state.players[state.turn].name} 생각 중…`;
   else if (state.phase === 'deal') html = '패를 돌리는 중…';
   else html = '…';
@@ -667,6 +686,10 @@ function renderSeats() {
     bar.style.background = p.sus >= 70 ? 'var(--ruby)' : 'var(--amber)';
     el.classList.toggle('gazing', p.gazing && !p.folded);
     el.classList.toggle('turn', state.phase === 'bet' && state.turn === p.seat);
+    const say = el.querySelector('.say');
+    const fresh = p.sayAt && performance.now() - p.sayAt < 1500;
+    say.textContent = p.note;
+    say.classList.toggle('show', Boolean(fresh && p.note));
     el.querySelector('.status').textContent = p.gone ? '떠남' : p.gazing ? '당신을 보는 중' : p.note || (p.folded ? '다이' : '');
   }
 }
@@ -697,8 +720,11 @@ function gameOver(title, text, won = false) {
   log.event('gameover', { won, round: state.round });
 }
 
+const allKnown = () => me().cards.every((c) => state.known.has(c.id));
+
 function playerBet(a) {
   if (state.phase !== 'bet' || state.turn !== 0) return;
+  if (!allKnown()) return toast('먼저 패를 쪼아서 확인하세요.', 1800);
   act(me(), a);
 }
 

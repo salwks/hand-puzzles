@@ -428,3 +428,15 @@ body:has(#standoff:not([hidden])) #app, body:has(#standoff:not([hidden])) #skill
 @media (max-width: 1100px) { #skills { display: none; } .so-left { left: 20px; } .so-right { right: 20px; } }
 
 .dock button[hidden] { display: none; }
+
+.seat .say { position: absolute; top: -38px; left: 50%; transform: translate(-50%, 6px); padding: 6px 14px; background: var(--ivory); color: #14100a; font-family: var(--serif); font-size: 15px; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity 0.2s, transform 0.2s; }
+.seat .say.show { opacity: 1; transform: translate(-50%, 0); }
+#myhand { display: flex; align-items: baseline; gap: 14px; padding: 8px 18px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; letter-spacing: 0.08em; }
+#myhand .lbl { color: var(--muted); }
+#myhand-cards { font-family: var(--serif); font-size: 18px; letter-spacing: 0.04em; }
+#myhand-name { color: var(--gold); font-family: var(--serif); font-size: 16px; }
+#watch { padding: 10px 13px; font-size: 13px; line-height: 1.4; border: 1px solid var(--line); background: var(--surface); }
+#watch:empty { display: none; }
+#watch[data-state="clear"] { color: var(--emerald-tint); border-color: var(--emerald); }
+#watch[data-state="watched"] { color: var(--ruby-tint); border-color: var(--ruby); }
+body.sutda #banner { font-size: 17px; border-color: var(--gold); }
