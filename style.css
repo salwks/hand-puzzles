@@ -611,3 +611,11 @@ body.water.fluid #hud { text-shadow: 0 1px 8px rgba(0,0,0,0.7); }
 body.water.fluid #hud .btn { background: rgba(13,12,10,0.55); }
 body.water.fluid::before { content: ''; position: fixed; left: 0; top: 0; right: 0; height: 220px; z-index: 1; pointer-events: none;
   background: linear-gradient(rgba(13,12,10,0.55), rgba(13,12,10,0)); }
+
+#tankframe { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; display: none; }
+body.water.fluid #tankframe { display: block; }
+body.water.fluid #hud { text-shadow: none; }
+body.water.fluid::before { display: none; }
+/* on the white bathroom tiles the HUD goes dark */
+body.water.fluid #hud h1, body.water.fluid #hud .back { color: #25282a; }
+body.water.fluid #hud .btn { background: rgba(20,22,24,0.78); color: #f1efe8; }

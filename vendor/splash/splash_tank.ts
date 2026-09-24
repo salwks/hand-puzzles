@@ -9,8 +9,6 @@ import { mlsmpmParticleStructSize, MLSMPMSimulator } from '../mls-mpm/mls-mpm'
 import { FluidRenderer } from '../render/fluidRender'
 
 export interface TankOptions {
-  /** Where the cubemap/ folder is served from (ends with '/'). */
-  base: string
   particles?: number
   /** Box size in grid cells (x across, y up, z deep). */
   box?: [number, number, number]
@@ -27,11 +25,39 @@ export interface Tank {
   reset(): void
   advance(): void
   destroy(): void
+  /** Screen position (client px) of a point in grid units — for drawing the tank's frame. */
+  project(x: number, y: number, z: number): { x: number; y: number; behind: boolean }
+  box: number[]
+}
+
+/** A bathroom around the tank: white tiles with grey grout on every wall, a plain ceiling. */
+function tileFace(size: number, plain = false): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')!
+  g.fillStyle = plain ? '#ecebe7' : '#f1f1ee'
+  g.fillRect(0, 0, size, size)
+  if (plain) return c
+  const n = 8, t = size / n
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const v = 236 + Math.round(Math.random() * 10) - ((i + j) % 2 ? 6 : 0)
+    g.fillStyle = `rgb(${v},${v},${v - 2})`
+    g.fillRect(i * t + 2, j * t + 2, t - 4, t - 4)
+  }
+  g.strokeStyle = '#b9bcbd'
+  g.lineWidth = 4
+  for (let i = 0; i <= n; i++) {
+    g.beginPath(); g.moveTo(i * t, 0); g.lineTo(i * t, size); g.stroke()
+    g.beginPath(); g.moveTo(0, i * t); g.lineTo(size, i * t); g.stroke()
+  }
+  return c
 }
 
 export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): Promise<Tank> {
-  const particleCount = opts.particles ?? 40000
-  const box = opts.box ?? [72, 40, 40]
+  // the glass tank's proportions (4 : 1.05 : 2.4), with a little headroom for splashes,
+  // filled to about three quarters of the rim
+  const particleCount = opts.particles ?? 37000
+  const box = opts.box ?? [72, 22, 43]
   const res = opts.resolution ?? 0.7
 
   const adapter = await navigator.gpu.requestAdapter()
@@ -43,9 +69,8 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   const format = navigator.gpu.getPreferredCanvasFormat()
   context.configure({ device, format })
 
-  // environment cubemap for reflections
-  const faces = ['posx', 'negx', 'posy', 'negy', 'posz', 'negz'].map((n) => `${opts.base}cubemap/${n}.png`)
-  const bitmaps = await Promise.all(faces.map(async (src) => createImageBitmap(await (await fetch(src)).blob())))
+  // environment cubemap for reflections: the tiled bathroom (order +X, -X, +Y, -Y, +Z, -Z)
+  const bitmaps = await Promise.all([false, false, true, false, false, false].map((plain) => createImageBitmap(tileFace(512, plain))))
   const cubemap = device.createTexture({
     dimension: '2d', size: [bitmaps[0].width, bitmaps[0].height, 6], format: 'rgba8unorm',
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
@@ -105,8 +130,8 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   }
   const camera = new Camera(view as unknown as HTMLCanvasElement)
   const aim = () => {
-    const distance = box[0] * 0.95
-    camera.reset(distance, [box[0] / 2, box[1] * 0.28, box[2] / 2], fov, 0.7)
+    const distance = box[0] * 1.05
+    camera.reset(distance, [box[0] / 2, box[1] * 0.42, box[2] / 2], fov, 0.7)
     camera.currentYtheta = -((opts.elevation ?? 10) * Math.PI) / 180
     camera.recalculateView()
   }
@@ -151,6 +176,16 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
     setHand,
     reset: () => { sim.reset(box, particleCount); aim() },
     advance: frame,
+    box,
+    project: (x: number, y: number, z: number) => {
+      const v = renderUniformsViews.viewMatrix, pm = renderUniformsViews.projectionMatrix
+      const vx = v[0] * x + v[4] * y + v[8] * z + v[12], vy = v[1] * x + v[5] * y + v[9] * z + v[13]
+      const vz = v[2] * x + v[6] * y + v[10] * z + v[14], vw = v[3] * x + v[7] * y + v[11] * z + v[15]
+      const cx = pm[0] * vx + pm[4] * vy + pm[8] * vz + pm[12] * vw, cy = pm[1] * vx + pm[5] * vy + pm[9] * vz + pm[13] * vw
+      const cw = pm[3] * vx + pm[7] * vy + pm[11] * vz + pm[15] * vw
+      const r = canvas.getBoundingClientRect()
+      return { x: r.left + (cx / cw * 0.5 + 0.5) * r.width, y: r.top + (0.5 - cy / cw * 0.5) * r.height, behind: cw <= 0 }
+    },
     destroy: () => { stopped = true; cancelAnimationFrame(raf); device.destroy() },
   }
 }
