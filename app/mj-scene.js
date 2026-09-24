@@ -36,7 +36,9 @@ function faceTexture(t) {
     tex.anisotropy = 8;
     const img = new Image();
     img.onload = () => {
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      // inset the art so it sits inside the tile's bevel with an ivory margin, like a carved face
+      const mx = canvas.width * 0.13, my = canvas.height * 0.1;
+      canvas.getContext('2d').drawImage(img, mx, my, canvas.width - 2 * mx, canvas.height - 2 * my);
       tex.needsUpdate = true;
     };
     img.src = tileSrc(t);
