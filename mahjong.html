@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>마작</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@400;600&display=swap">
+  <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body class="mj">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+      <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+      <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+      <symbol id="i-mouse" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+      <symbol id="i-turn-left" viewBox="0 0 24 24"><path d="M4 5v5h5"/><path d="M4.6 10A8 8 0 1 1 5 15.5"/></symbol>
+      <symbol id="i-turn-right" viewBox="0 0 24 24"><path d="M20 5v5h-5"/><path d="M19.4 10A8 8 0 1 0 19 15.5"/></symbol>
+      <symbol id="i-flip" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7L3 12l5 5z"/><path d="M16 7l5 5-5 5z"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
+    </defs>
+  </svg>
+
+  <canvas id="stage" aria-label="마작 테이블"></canvas>
+
+  <div id="app">
+    <header id="hud">
+      <a class="back" href="./"><svg class="icon"><use href="#i-back"/></svg><span>게임 선택</span></a>
+      <div class="overline">MAHJONG · RIICHI</div>
+      <h1>마작</h1>
+      <dl class="stats">
+        <div><dt>내 점수 · <span id="my-wind"></span>가</dt><dd id="score">25,000</dd></div>
+        <div><dt>국</dt><dd id="round" class="serif">동 1국</dd></div>
+        <div><dt>남은 패</dt><dd id="left" class="gold">70</dd></div>
+      </dl>
+    </header>
+
+    <div id="banner" role="status" aria-live="polite"><i class="gem"></i><span id="banner-text"></span></div>
+
+    <footer>
+      <div id="my-say" class="my-say"></div>
+      <div class="dock">
+        <button id="b-riichi" hidden>리치</button>
+        <button id="b-tsumo" hidden>쯔모</button>
+        <button id="b-kan" hidden>깡</button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="seats">
+    <div class="mj-seat" id="seat-1"><div class="say"></div><span class="wind"></span><span class="nm">남 사장</span><span class="pts"></span><span class="st"></span></div>
+    <div class="mj-seat" id="seat-2"><div class="say"></div><span class="wind"></span><span class="nm">서 선생</span><span class="pts"></span><span class="st"></span></div>
+    <div class="mj-seat" id="seat-3"><div class="say"></div><span class="wind"></span><span class="nm">북 여사</span><span class="pts"></span><span class="st"></span></div>
+  </div>
+
+  <aside id="hint" aria-label="추천">
+    <div class="overline">HINT</div>
+    <div id="hint-body"></div>
+    <p class="fine">버릴 패를 집은 채 손목을 비틀면(마우스: 우클릭, R 키) 가로로 눕혀 <b>리치</b>.</p>
+  </aside>
+
+  <section id="callbox" hidden>
+    <div class="overline">CALL</div>
+    <p id="call-what"></p>
+    <i class="timer"><b id="call-timer"></b></i>
+    <div id="call-opts"></div>
+    <p class="fine">버림패를 <b>집어 내 쪽으로 끌어오면</b> 가져옵니다. 가만히 있으면 패스.</p>
+    <button id="b-pass" class="btn small">패스</button>
+  </section>
+
+  <aside id="cam" class="off">
+    <video id="video" playsinline muted></video>
+    <div class="preview" id="cam-slot">
+      <canvas id="cam-canvas" width="320" height="240"></canvas>
+      <div class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></div>
+      <div id="cam-status"></div>
+    </div>
+    <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+    <button id="btn-tune" class="btn small"><svg class="icon"><use href="#i-gear"/></svg><span>손 인식 보정</span></button>
+    <button id="btn-cam-on" class="btn small"><svg class="icon"><use href="#i-camera"/></svg><span>카메라 켜기</span></button>
+  </aside>
+
+  <aside id="drawer" hidden aria-label="손 인식 보정">
+    <div class="drawer-head">
+      <div>
+        <div class="overline">CALIBRATION</div>
+        <h2>손 인식 보정</h2>
+      </div>
+      <button id="btn-drawer-close" class="btn square" aria-label="닫기"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="preview large" id="drawer-slot"></div>
+    <div class="drawer-status"><span class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></span><span id="hand-side"></span></div>
+    <div class="field">
+      <div class="field-head"><span>핀치</span><span id="pinch-state"></span></div>
+      <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+      <div class="gauge-labels"><span>붙임</span><span>밝은 선 집기 · 어두운 선 놓기</span><span>벌림</span></div>
+    </div>
+    <hr>
+    <div class="field">
+      <div class="field-head"><label for="tune-smooth">떨림 보정</label><output id="tune-smooth-value"></output></div>
+      <input id="tune-smooth" type="range" min="0" max="1" step="0.05">
+      <p>올리면 안정적이지만 조금 느려집니다.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-pinch">핀치 감도</label><output id="tune-pinch-value"></output></div>
+      <input id="tune-pinch" type="range" min="0.6" max="1.6" step="0.05">
+      <p>잘 안 집히면 올리고, 저절로 집히면 내리세요.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-wilor">WiLoR 3D 보정</label><input id="tune-wilor" type="checkbox"></div>
+      <p id="engine-state"></p>
+      <p>서버(<code>wilor_server.py</code>)가 켜져 있으면 손바닥 방향과 손목 각도를 3D 모델로 보정합니다. 없으면 자동으로 MediaPipe만 씁니다.</p>
+    </div>
+    <div class="drawer-foot">
+      <span id="log-status">진단 로그 대기 중</span>
+      <button id="btn-cam" class="btn small">카메라 켜기</button>
+    </div>
+  </aside>
+
+
+  <div id="cursor" hidden></div>
+  <div id="toast" hidden></div>
+
+  <section id="result" class="modal" hidden>
+    <div class="card wide">
+      <div class="overline" id="res-over"></div>
+      <h2 id="res-title"></h2>
+      <div id="res-tiles" class="mj-row"></div>
+      <div id="res-yaku"></div>
+      <div id="res-points"></div>
+      <dl id="res-scores"></dl>
+      <div class="stack"><button id="res-next" class="btn primary tall">다음 국</button></div>
+    </div>
+  </section>
+
+  <section id="modal-end" class="modal" hidden>
+    <div class="card"><div class="overline">FINAL</div><h2 id="end-title"></h2><div class="ornament"><i class="gem"></i></div>
+      <dl id="end-scores"></dl>
+      <div class="stack"><button id="end-again" class="btn primary tall">새 대국</button><a class="btn" href="./">게임 선택으로</a></div></div>
+  </section>
+
+  <section id="modal-start" class="start">
+    <div class="start-copy">
+      <div class="overline">MAHJONG · RIICHI</div>
+      <h2>마작</h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <p class="lead">리치 마작 동풍전. 상대는 AI 세 명입니다.<br>패는 모두 손으로 집어서 둡니다.</p>
+      <ol class="steps">
+        <li><b>01</b><div><strong>반짝이는 산의 패를 집어 가져오기</strong><span>당신 차례가 되면 가져올 패가 빛납니다.</span></div></li>
+        <li><b>02</b><div><strong>버릴 패를 집어 가운데 하천에 놓기</strong><span>텐파이라면 손목을 비틀어 눕혀 놓으면 리치입니다.</span></div></li>
+        <li><b>03</b><div><strong>남의 버림패를 내 쪽으로 끌어오기</strong><span>퐁·치·깡·론이 가능할 때 그 패가 빛납니다.</span></div></li>
+      </ol>
+      <div class="row">
+        <button id="btn-start-cam" class="btn primary"><svg class="icon"><use href="#i-camera"/></svg><span>카메라로 시작</span></button>
+        <button id="btn-start-mouse" class="btn"><svg class="icon"><use href="#i-mouse"/></svg><span>마우스로 시작</span></button>
+      </div>
+      <p class="fine">영상은 기기 밖으로 전송되지 않습니다. 손 인식은 브라우저 안에서만 처리됩니다.</p>
+    </div>
+  </section>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="app/mj.js"></script>
+</body>
+</html>

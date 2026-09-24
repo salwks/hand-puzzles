@@ -160,3 +160,27 @@ export function contactShadow(radius) {
   mesh.renderOrder = -1; // under the state rings
   return mesh;
 }
+
+/** Baize / felt: dense short fibres in the bump map and a soft sheen, so the lamp gives it a nap. */
+export function feltMaterial(color = 0x1b3a2c, repeat = 10) {
+  const SIZE = 256;
+  const [heightCanvas, height] = canvas(SIZE);
+  const rnd = seeded(17);
+  height.fillStyle = '#808080';
+  height.fillRect(0, 0, SIZE, SIZE);
+  for (let i = 0; i < 9000; i++) {
+    const x = rnd() * SIZE, y = rnd() * SIZE, a = rnd() * Math.PI, l = 1 + rnd() * 3;
+    height.globalAlpha = 0.08 + rnd() * 0.16;
+    height.strokeStyle = rnd() > 0.5 ? '#d0d0d0' : '#303030';
+    height.lineWidth = 0.6;
+    height.beginPath();
+    height.moveTo(x, y);
+    height.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+    height.stroke();
+  }
+  const bumpMap = texture(heightCanvas, false);
+  bumpMap.repeat.set(repeat, repeat);
+  return new THREE.MeshPhysicalMaterial({
+    color, roughness: 0.92, bumpMap, bumpScale: 0.35, sheen: 0.8, sheenRoughness: 0.7, sheenColor: 0x5f8f74,
+  });
+}
