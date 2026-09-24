@@ -573,3 +573,23 @@ body.gs #hud dd small { font-size: 0.55em; color: var(--muted, #9c9385); }
 #guide-body p { margin: 0 0 4px; }
 #guide-body .gs-mini { width: 22px; height: 36px; }
 @media (prefers-reduced-motion: reduce) { #fx-canvas, #flash { display: none; } }
+
+/* 고스톱: peek at the opponents' captured cards */
+.peek-toggle { pointer-events: auto; margin-top: 8px; margin-left: 6px; }
+.peek-toggle kbd { font-family: inherit; font-size: 10px; padding: 0 4px; margin-left: 4px; border: 1px solid var(--line); color: var(--muted); }
+.peek-toggle.on { color: var(--gold-hi); border-color: var(--gold); }
+#peek { position: fixed; left: 50%; top: 110px; transform: translateX(-50%); z-index: 40; width: min(880px, calc(100vw - 32px));
+  padding: 18px 22px; background: rgba(20,18,16,0.96); border: 1px solid var(--gold); box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 30px rgba(184,155,94,0.15);
+  display: flex; flex-direction: column; gap: 10px; animation: rise 0.18s ease-out both; pointer-events: none; }
+#peek-body { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.peek-player h3 { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+.peek-player h3 small { font-family: inherit; font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.peek-row { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 8px; min-height: 60px; }
+.peek-kind { font-size: 12px; color: var(--muted); }
+.peek-kind b { font-family: var(--latin); font-size: 17px; color: var(--ivory); margin-left: 2px; }
+.peek-kind.gold, .peek-kind.gold b { color: #f2d08a; }
+.peek-kind.warn, .peek-kind.warn b { color: #f0a3a6; }
+.peek-row em { color: var(--muted); font-style: normal; }
+#peek .gs-card { width: 34px; height: 55px; }
+#peek .gs-group .gs-card + .gs-card { margin-left: -12px; }
+@media (max-width: 760px) { #peek-body { grid-template-columns: 1fr; } }

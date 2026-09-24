@@ -859,6 +859,46 @@ setGuide(guideOn);
 for (const id of ['#btn-start-mouse', '#btn-start-cam']) {
   $(id).addEventListener('click', () => { unlockSound(); if (!state.started) setTimeout(newGame, 250); }, { once: true });
 }
+// ---------- peek: the opponents' captured cards, spread out ----------
+// Hold Tab (or hold the button with the mouse); with a hand, a pinch on the button toggles it
+// and it closes by itself after a few seconds.
+
+let peekTimer;
+function renderPeek() {
+  const st = state.st;
+  if (!st) { $('#peek-body').innerHTML = '<p class="fine">판이 시작되면 볼 수 있습니다.</p>'; return; }
+  const kinds = [['gwang', '광'], ['yeol', '열끗'], ['tti', '띠'], ['pi', '피']];
+  $('#peek-body').innerHTML = [1, 2].map((p) => {
+    const sc = score(st.caps[p]);
+    const rows = kinds.map(([k, nm]) => {
+      const ids = st.caps[p].filter((id) => KIND_OF(id) === k);
+      const n = k === 'pi' ? sc.pi : ids.length;
+      const warn = k === 'pi' && n >= 1 && n <= 5 ? ' warn' : k === 'gwang' && n >= 2 ? ' gold' : '';
+      return `<div class="peek-row"><span class="peek-kind${warn}">${nm} <b>${n}</b></span><span class="gs-group">${ids.map((id) => `<img class="gs-card" src="${cardSrc(id)}" alt="${cardName(id)}">`).join('') || '<em>—</em>'}</span></div>`;
+    }).join('');
+    const tags = [st.go[p] ? `${st.go[p]}고` : '', st.shakes[p] ? '흔들기/폭탄' : ''].filter(Boolean).join(' · ');
+    return `<div class="peek-player"><h3>${NAMES[p]} <small>${sc.total}점${tags ? ` · ${tags}` : ''} · 손패 ${st.hands[p].length}장</small></h3>${rows}</div>`;
+  }).join('');
+}
+function showPeek(on) {
+  clearTimeout(peekTimer);
+  if (on) renderPeek();
+  $('#peek').hidden = !on;
+  $('#b-peek').classList.toggle('on', on);
+}
+const peekBtn = $('#b-peek');
+peekBtn.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' && e.pointerType !== 'touch') return; showPeek(true); });
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) peekBtn.addEventListener(ev, (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'touch') showPeek(false); });
+peekBtn.addEventListener('click', (e) => {
+  if (e.detail !== 0) return; // real clicks are handled as press-and-hold above
+  const open = $('#peek').hidden;
+  showPeek(open);
+  if (open) peekTimer = setTimeout(() => showPeek(false), 5000);
+});
+addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); if (!e.repeat) showPeek(true); } });
+addEventListener('keyup', (e) => { if (e.key === 'Tab') showPeek(false); });
+addEventListener('blur', () => showPeek(false));
+
 const soundBtn = $('#b-sound');
 const showSound = () => { soundBtn.textContent = isMuted() ? '소리 꺼짐' : '소리 켜짐'; soundBtn.classList.toggle('off', isMuted()); };
 soundBtn.addEventListener('click', () => { unlockSound(); setMuted(!isMuted()); showSound(); });
