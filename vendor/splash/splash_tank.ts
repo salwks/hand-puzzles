@@ -56,7 +56,7 @@ function tileFace(size: number, plain = false): HTMLCanvasElement {
 export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): Promise<Tank> {
   // the glass tank's proportions (4 : 1.05 : 2.4), with a little headroom for splashes,
   // filled to about three quarters of the rim
-  const particleCount = opts.particles ?? 37000
+  const particleCount = opts.particles ?? 55000
   const box = opts.box ?? [72, 22, 43]
   const res = opts.resolution ?? 0.7
 
@@ -130,8 +130,12 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   }
   const camera = new Camera(view as unknown as HTMLCanvasElement)
   const aim = () => {
-    const distance = box[0] * 1.05
+    // close enough that the water's width (x 3…box-4) fills ~90% of the screen's width at its front
+    const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight)
+    const half = (box[0] - 7) / 2 / 0.9
+    const distance = half / (Math.tan(fov / 2) * aspect) + (box[2] / 2 - 3)
     camera.reset(distance, [box[0] / 2, box[1] * 0.42, box[2] / 2], fov, 0.7)
+    camera.currentXtheta = 0 // face the long side (Splash looks down the x axis)
     camera.currentYtheta = -((opts.elevation ?? 10) * Math.PI) / 180
     camera.recalculateView()
   }

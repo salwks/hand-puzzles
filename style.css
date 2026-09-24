@@ -612,8 +612,6 @@ body.water.fluid #hud .btn { background: rgba(13,12,10,0.55); }
 body.water.fluid::before { content: ''; position: fixed; left: 0; top: 0; right: 0; height: 220px; z-index: 1; pointer-events: none;
   background: linear-gradient(rgba(13,12,10,0.55), rgba(13,12,10,0)); }
 
-#tankframe { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; display: none; }
-body.water.fluid #tankframe { display: block; }
 body.water.fluid #hud { text-shadow: none; }
 body.water.fluid::before { display: none; }
 /* on the white bathroom tiles the HUD goes dark */
