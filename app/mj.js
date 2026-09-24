@@ -167,11 +167,16 @@ async function drawTile(s, rinshan) {
     // The player takes their own tile from the wall.
     state.phase = 'draw';
     state.drawTarget = id;
-    scene.setGlow(id, { color: COLOR.hover, intensity: 0.8, pulse: true });
+    // The tile slides out of the wall so the standing hand can't hide it.
+    const pop = scene.popPose(state.live);
+    scene.place(id, pop, { dur: 0.35, arc: 0.1 });
+    scene.showDrawSpot(pop.p);
+    scene.setGlow(id, { color: COLOR.hover, intensity: 1, pulse: true });
     render();
     await new Promise((resolve) => { state.wait = { kind: 'draw', resolve }; });
     state.wait = null;
     scene.setGlow(id, null);
+    scene.showDrawSpot(null);
     state.drawTarget = null;
   }
   if (!rinshan) state.live++;
@@ -497,13 +502,22 @@ function newGame() {
 
 // ---------- hands on the table ----------
 
+/** The tile to draw is small and far away: a pinch anywhere near it on screen counts. */
+function nearDrawTarget(x, y) {
+  const id = state.drawTarget;
+  if (id === null || id === undefined) return null;
+  if (scene.pick(x, y, [id]) !== null) return id;
+  const p = scene.tile(id).root.position, sp = scene.toScreen(p.x, p.y, p.z);
+  return Math.hypot(sp.x - x, sp.y - y) < 70 ? id : null;
+}
+
 const modalOpen = () => shell.introOpen() || !$('#result').hidden || !$('#modal-end').hidden;
 
 function updateHover(x, y) {
   let h = null;
   if (x !== null && !state.drag && !modalOpen() && onStage(x, y)) {
     if (state.phase === 'discard') h = scene.pick(x, y, state.hands[0]);
-    else if (state.phase === 'draw') h = scene.pick(x, y, [state.drawTarget]);
+    else if (state.phase === 'draw') h = nearDrawTarget(x, y);
     else if (state.phase === 'call') h = scene.pick(x, y, [state.callWin.id]);
   }
   scene.hoverOn = h !== null;
@@ -523,7 +537,7 @@ function startDrag(x, y) {
   scene.pointer = { x, y };
   let id = null, kind = null;
   if (state.phase === 'discard') { id = scene.pick(x, y, state.hands[0]); kind = 'discard'; }
-  else if (state.phase === 'draw') { id = scene.pick(x, y, [state.drawTarget]); kind = 'draw'; }
+  else if (state.phase === 'draw') { id = nearDrawTarget(x, y); kind = 'draw'; }
   else if (state.phase === 'call') { id = scene.pick(x, y, [state.callWin.id]); kind = 'call'; }
   if (id === null) return false;
   if (kind === 'discard' && state.riichi[0] && id !== state.drawn) { toast('리치 중에는 가져온 패만 버릴 수 있습니다.', 1800); return false; }
@@ -572,7 +586,7 @@ function cancelDrag() {
   scene.dropCarry();
   if (d.kind === 'discard') layoutHand(0);
   if (d.kind === 'call') { state.callWin.choosing = false; layoutRiver(state.callWin.from); }
-  if (d.kind === 'draw') state.wall.forEach((id, i) => { if (id === d.id) scene.place(id, scene.wallPose(i), { dur: 0.2 }); });
+  if (d.kind === 'draw') scene.place(d.id, scene.popPose(state.live), { dur: 0.2 });
   render();
 }
 
@@ -777,7 +791,7 @@ function applyHandGlows() {
     else if (tag) g = { color: 0xfff0c8, intensity: 0.42, pulse: false };
     scene.setGlow(id, g);
   }
-  if (guideOn && state.phase === 'draw' && state.drawTarget !== null) state.tagged.push({ id: state.drawTarget, label: '가져오기', best: true });
+  if (state.phase === 'draw' && state.drawTarget !== null) state.tagged.push({ id: state.drawTarget, label: '가져오기', best: true });
   if (guideOn && state.phase === 'call' && state.callWin) state.tagged.push({ id: state.callWin.id, label: '가져올 수 있음', best: true });
 }
 
@@ -888,7 +902,7 @@ setInterval(renderSeats, 250);
 
 function placeTags() {
   const box = $('#tile-tags');
-  const tags = guideOn && !modalOpen() && !state.drag ? state.tagged ?? [] : [];
+  const tags = !modalOpen() && !state.drag ? (state.tagged ?? []).filter((t) => guideOn || state.phase === 'draw') : [];
   while (box.children.length < tags.length) box.append(document.createElement('div'));
   [...box.children].forEach((el, i) => {
     const tag = tags[i];

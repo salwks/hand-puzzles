@@ -194,7 +194,12 @@ export class MahjongScene extends Stage {
     zone.rotation.x = -Math.PI / 2;
     zone.position.y = 0.003;
     this.zone = zone;
-    this.scene.add(felt, frame, consoleMesh, label, zone);
+    // where the tile to draw waits: a pulsing gold ring on the felt
+    const spot = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.36, 48), new THREE.MeshBasicMaterial({ color: 0xd6a23e, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }));
+    spot.rotation.x = -Math.PI / 2;
+    spot.position.y = 0.004;
+    this.drawSpot = spot;
+    this.scene.add(felt, frame, consoleMesh, label, zone, spot);
   }
 
   /** Round label on the centre console, e.g. ('동', 1, [25000, …], dealerSeat). */
@@ -303,6 +308,22 @@ export class MahjongScene extends Stage {
     });
   }
 
+  /** The pose a wall tile pops out to when it's the player's turn to draw: pulled out towards
+   *  the centre and lifted, still face-down, so the hand in front can't hide it. */
+  popPose(index) {
+    const t = this.wallPose(index);
+    const d = Math.hypot(t.p.x, t.p.z) || 1;
+    t.p.x -= (t.p.x / d) * 0.75;
+    t.p.z -= (t.p.z / d) * 0.75;
+    t.p.y += 0.35;
+    return t;
+  }
+
+  showDrawSpot(pos) {
+    this.drawSpotOn = Boolean(pos);
+    if (pos) this.drawSpot.position.set(pos.x, 0.004, pos.z);
+  }
+
   setGlow(id, glow) {
     const o = this.tiles.get(id);
     if (o) o.glow = glow ?? NO_GLOW;
@@ -352,6 +373,8 @@ export class MahjongScene extends Stage {
       applyGlow(o.jade, o.glow, wave, 0.6);
     }
     this.zone.material.opacity += ((this.zoneOn ? 0.55 + 0.25 * wave : 0) - this.zone.material.opacity) * damp(8, dt);
+    this.drawSpot.material.opacity = this.drawSpotOn ? 0.55 + 0.35 * wave : 0;
+    this.drawSpot.scale.setScalar(this.drawSpotOn ? 1 + 0.12 * wave : 1);
   }
 
   handAnchor() {
