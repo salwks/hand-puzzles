@@ -97,7 +97,12 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   }
 
   // Splash's camera, fed our own pointer instead of its drag-to-orbit mouse handlers.
-  const view = { get clientWidth() { return canvas.clientWidth }, get clientHeight() { return canvas.clientHeight }, addEventListener() {} }
+  // (it reads width/height to turn pointer motion into a velocity: without them the stir is NaN)
+  const view = {
+    get clientWidth() { return canvas.clientWidth }, get clientHeight() { return canvas.clientHeight },
+    get width() { return canvas.width }, get height() { return canvas.height },
+    addEventListener() {},
+  }
   const camera = new Camera(view as unknown as HTMLCanvasElement)
   const aim = () => {
     const distance = box[0] * 0.95
@@ -131,7 +136,7 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
     device.queue.writeBuffer(renderUniformBuffer, 0, renderUniformsValues)
     const enc = device.createCommandEncoder()
     sim.execute(enc, [camera.currentHoverX / canvas.clientWidth, camera.currentHoverY / canvas.clientHeight],
-      camera.calcMouseVelocity(), 15, false, 0.4 * 0.8, true, dg)
+      camera.calcMouseVelocity().map((v: number) => v * 0.6), 15, false, 0.4 * 0.8, true, dg) // a hand sweeps faster than a mouse hover: 60% of Splash's push
     renderer.execute(context, enc, sim.numParticles, false, [140 / 255, 220 / 255, 240 / 255], 0.7)
     device.queue.submit([enc.finish()])
     camera.setNewPrevMouseCoord()
