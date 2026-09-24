@@ -579,7 +579,7 @@ function endDrag(x, y) {
   scene.dropCarry();
   const at = scene.pointerOnTable(0);
   const tap = Math.hypot(x - d.x0, y - d.y0) < 12 && performance.now() - d.t < 400;
-  const inRiver = at && Math.abs(at.x) < 2.6 && Math.abs(at.z) < 2.6;
+  const inRiver = at && Math.abs(at.x) < 2.95 && Math.abs(at.z) < 2.95;
   const toMe = at && at.z > 2.5;
   if (d.kind === 'draw') {
     state.wait?.resolve();

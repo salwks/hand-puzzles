@@ -10,7 +10,8 @@ import { typeOf } from './mj-logic.js';
 
 export const TW = 0.34, TH = 0.46, TD = 0.27; // tile width, height, thickness // tile width, height, thickness
 const HALF = 4.45; // half size of the playing surface
-const HAND_Z = 3.8, RIVER_Z = 0.82, WALL_Z = 3.02, MELD_Z = 3.95;
+// RIVER_Z > half a 6-tile row (1.05) so neighbouring rivers never overlap at the corners
+const HAND_Z = 3.8, RIVER_Z = 1.12, WALL_Z = 3.35, MELD_Z = 3.95;
 const HOVER = 1.2;
 const CARRY_Y = 0.75;
 export const SEAT_YAW = [0, Math.PI / 2, Math.PI, -Math.PI / 2]; // me, right, across, left
@@ -111,7 +112,25 @@ export class MahjongScene extends Stage {
     this.carried = null;
     this.buildTable();
     this.setLampScale(5.2);
+    this.softenLight();
     this.start();
+  }
+
+  /** Room light around the lamp: a softer key plus fills from the other sides, so shadows read
+   *  as the lamp's but open up instead of dropping to black — the look of a lit room, not a stage. */
+  softenLight() {
+    this.keyLight.intensity *= 0.8;
+    this.keyLight.shadow.radius = 4;
+    this.keyLight.shadow.mapSize.set(1024, 1024); // lower res + PCF soft = wider penumbra
+    this.scene.environmentIntensity = 0.5;
+    const fill = new THREE.DirectionalLight(0xffe9cc, 0.7); // warm light bouncing off the wall opposite the lamp
+    fill.position.set(6, 5, 4);
+    const front = new THREE.DirectionalLight(0xfff4e4, 0.35); // off the player's side, lifts the hand's faces
+    front.position.set(0, 3, 9);
+    const back = new THREE.DirectionalLight(0xcbd8ee, 0.3); // cool sky from behind
+    back.position.set(-2, 4, -8);
+    const bounce = new THREE.HemisphereLight(0x565a66, 0x2c3a2e, 0.55); // green felt bounce under the tiles
+    this.scene.add(fill, front, back, bounce);
   }
 
   buildTable() {
@@ -148,7 +167,7 @@ export class MahjongScene extends Stage {
     label.rotation.x = -Math.PI / 2;
     label.position.y = 0.102;
     // the river zone marker: where discards go
-    const zone = new THREE.Mesh(new THREE.RingGeometry(1.6, 1.62, 4, 1, Math.PI / 4), new THREE.MeshBasicMaterial({ color: 0xb89b5e, transparent: true, opacity: 0.0, depthWrite: false }));
+    const zone = new THREE.Mesh(new THREE.RingGeometry((RIVER_Z - 0.06) * Math.SQRT2, (RIVER_Z - 0.04) * Math.SQRT2, 4, 1, Math.PI / 4), new THREE.MeshBasicMaterial({ color: 0xb89b5e, transparent: true, opacity: 0.0, depthWrite: false }));
     zone.rotation.x = -Math.PI / 2;
     zone.position.y = 0.003;
     this.zone = zone;
@@ -206,7 +225,7 @@ export class MahjongScene extends Stage {
   wallPose(index) { // 136 positions: 4 sides × 17 stacks × 2 levels, drawn top level first
     const side = Math.floor(index / 34), q = index % 34, stack = Math.floor(q / 2), level = 1 - (q % 2);
     // walls are staggered like a pinwheel so the four corners don't collide
-    return seatPose((side + 3) % 4, (8 - stack) * (TW + 0.004) - 0.34, TD / 2 + level * TD, WALL_Z, Math.PI / 2);
+    return seatPose((side + 3) % 4, (8 - stack) * (TW + 0.004) - 0.17, TD / 2 + level * TD, WALL_Z, Math.PI / 2);
   }
 
   handPose(seat, i, n, drawnGap = false, meldCount = 0) {
@@ -271,8 +290,8 @@ export class MahjongScene extends Stage {
   popPose(index) {
     const t = this.wallPose(index);
     const d = Math.hypot(t.p.x, t.p.z) || 1;
-    t.p.x -= (t.p.x / d) * 0.75;
-    t.p.z -= (t.p.z / d) * 0.75;
+    t.p.x -= (t.p.x / d) * 0.375;
+    t.p.z -= (t.p.z / d) * 0.375;
     t.p.y += 0.35;
     return t;
   }
