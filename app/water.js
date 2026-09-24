@@ -1,6 +1,6 @@
-// 물놀이 — a glass tank of water to play with. Where WebGPU is available the water is
-// jeantimex/fluid's particle simulation (vendor/jfluid): an open hand in the water pushes it,
-// a pinch pulls it. Elsewhere, the surface-sheet tank (water-scene.js) with the same controls.
+// 물놀이 — a glass tank of water to play with. Where WebGPU is available the water is Splash's
+// particle simulation (vendor/splash, MLS-MPM): a hand moving through it stirs it. Elsewhere,
+// the surface-sheet tank (water-scene.js) with the same controls.
 import { WaterScene } from './water-scene.js';
 import { createShell } from './shell.js';
 
@@ -10,8 +10,8 @@ let tank = null;
 if (navigator.gpu) {
   document.body.classList.add('fluid'); // the canvas needs its size before WebGPU sets it up
   try {
-    const { createTank } = await import('../vendor/jfluid/water-tank.js');
-    tank = await createTank($('#fluid'), { elevation: 10 });
+    const { createTank } = await import('../vendor/splash/splash-tank.js');
+    tank = await createTank($('#fluid'), { base: 'vendor/splash/', elevation: 10 });
   } catch (e) {
     console.warn('particle water unavailable, falling back', e);
     tank = null;
@@ -31,7 +31,7 @@ let mouseDown = false, mouseMode = 'push';
 let lastHand = 0;
 
 function stir(x, y, mode) {
-  if (tank) tank.setHand(x, y, mode);
+  if (tank) tank.setHand(mode ? x : null, y);
   else surface.setStir(Boolean(mode), x, y);
   ring.hidden = !mode;
   if (mode) {
@@ -51,11 +51,11 @@ shell.attach({
   endDrag() {},
   cancelDrag() {},
   updateHover() {},
-  // A tracked hand is in the water whenever it's seen: open it to push water, pinch to pull.
+  // A tracked hand is in the water whenever it's seen; its movement stirs the water.
   onHandPose(frame) {
     if (shell.introOpen()) return;
     lastHand = performance.now();
-    stir(frame.x * innerWidth, frame.y * innerHeight, frame.pinching ? 'pull' : 'push');
+    stir(frame.x * innerWidth, frame.y * innerHeight, 'push');
   },
   refresh() {},
 });
@@ -66,13 +66,12 @@ shell.attach({
   requestAnimationFrame(watch);
 })();
 
-// Mouse: drag to push, Shift-drag or right-drag to pull.
+// Mouse: drag through the water to stir it.
 const water = tank ? $('#fluid') : $('#stage');
 water.addEventListener('contextmenu', (e) => e.preventDefault());
 water.addEventListener('pointerdown', (e) => {
   if (shell.introOpen()) return;
   mouseDown = true;
-  mouseMode = e.button === 2 || e.shiftKey ? 'pull' : 'push';
   water.setPointerCapture(e.pointerId);
   stir(e.clientX, e.clientY, mouseMode);
 });
