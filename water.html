@@ -29,6 +29,8 @@
   </svg>
 
   <canvas id="stage" aria-label="물이 든 유리 수조"></canvas>
+  <canvas id="fluid" aria-label="입자로 채운 물"></canvas>
+  <div id="dip" hidden></div>
 
   <div id="app">
     <header id="hud">
@@ -40,7 +42,7 @@
         <button id="b-surfer" class="btn small">서퍼 가운데로</button>
       </div>
     </header>
-    <div id="banner" role="status"><i class="gem"></i><span>손을 물에 넣고 움직여 보세요 · 마우스는 누른 채 끌기</span></div>
+    <div id="banner" role="status"><i class="gem"></i><span>손을 펴서 넣으면 밀고, 핀치하면 끌어당깁니다 · 마우스는 끌면 밀기, Shift·오른쪽 버튼은 당기기</span></div>
   </div>
 
   <aside id="cam" class="off">
@@ -102,7 +104,7 @@
       <div class="ornament"><i class="gem"></i></div>
       <p class="lead">물이 가득 든 유리 수조. 손으로 물을 저어 파도를 만들어 보세요.<br>장난감 서퍼가 물결을 따라 떠다닙니다.</p>
       <ol class="steps">
-        <li><b>01</b><div><strong>손을 화면에 보이기만 하면 물에 들어갑니다</strong><span>핀치할 필요 없이, 움직이는 만큼 물이 밀립니다.</span></div></li>
+        <li><b>01</b><div><strong>손을 화면에 보이기만 하면 물에 들어갑니다</strong><span>손을 펴면 물을 밀고, 핀치하면 물을 끌어당깁니다.</span></div></li>
         <li><b>02</b><div><strong>크게 밀면 파도, 빠르게 휘저으면 거품과 물보라</strong><span>파도끼리 부딪치거나 유리벽에 부딪히는 곳에 거품이 생깁니다.</span></div></li>
         <li><b>03</b><div><strong>서퍼를 파도에 태워 보세요</strong><span>파도의 경사면을 따라 미끄러지고 물살에 떠밀립니다.</span></div></li>
       </ol>

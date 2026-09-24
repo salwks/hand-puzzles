@@ -597,3 +597,11 @@ body.gs #hud dd small { font-size: 0.55em; color: var(--muted, #9c9385); }
 /* ---------- 물놀이 ---------- */
 .water-tools { display: flex; gap: 8px; margin-top: 8px; pointer-events: auto; }
 body.water #banner { pointer-events: none; }
+
+/* particle water (jeantimex/fluid): its own WebGPU canvas under the UI */
+#fluid { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; touch-action: none; }
+body.water.fluid #fluid { display: block; }
+body.water.fluid #stage { display: none; }
+#dip { position: fixed; left: 0; top: 0; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+  border: 2px solid rgba(242,208,138,0.85); box-shadow: 0 0 16px rgba(242,208,138,0.45); pointer-events: none; z-index: 5; }
+#dip.pull { border-color: rgba(157,220,192,0.9); box-shadow: 0 0 16px rgba(157,220,192,0.5); width: 30px; height: 30px; margin: -15px 0 0 -15px; }

@@ -18,7 +18,7 @@ struct Params {
   sim: vec4f,    // dt, gravity, stiffness, rest density
   misc: vec4f,   // viscosity, fixed-point scale, hand active, surface band (cells)
   hand: vec4f,   // x, bottom y, z, radius   (cells)
-  handV: vec4f,  // vx, vy, vz, _            (cells / sim time)
+  handV: vec4f,  // vx, vy, vz, velocity damping per step
 };
 
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
@@ -83,7 +83,7 @@ fn p2g2(@builtin(global_invocation_id) id: vec3u) {
     density += dec(atomicLoad(&cells[cellIndex(ci + vec3i(gx - 1, gy - 1, gz - 1))].mass)) * weight;
   }}}
   let volume = 1.0 / max(density, 1e-4);
-  let pressure = max(-0.015, P.sim.z * (pow(density / P.sim.w, 5.0) - 1.0)); // a trace of cohesion: calm water settles, but never clings like jelly
+  let pressure = max(0.0, P.sim.z * (pow(density / P.sim.w, 5.0) - 1.0)); // no tension: it clumps particles and pumps energy into still water
   var stress = mat3x3f(-pressure, 0.0, 0.0, 0.0, -pressure, 0.0, 0.0, 0.0, -pressure);
   let strain = p.C + transpose(p.C);
   stress += P.misc.x * strain;
@@ -145,8 +145,11 @@ fn g2p(@builtin(global_invocation_id) id: vec3u) {
   }}}
   // a touch of damping on the local swirl (C) and on speed: kills the fizz of grid noise at
   // rest without taking the slosh out of the water
-  p.C = B * 4.0 * 0.96;
-  p.v = v * 0.9985;
+  p.C = B * 4.0 * 0.92;
+  // water that is all but still is let come to rest (grid noise would keep it fizzing);
+  // anything moving like a wave keeps its motion
+  let sp = length(v);
+  p.v = v * mix(0.9, P.handV.w, smoothstep(0.015, 0.1, sp));
   p.position += v * P.sim.x;
   let g = vec3f(P.grid.xyz);
   // a stiff wall a cell in from the edge keeps particles off the boundary cells
@@ -244,6 +247,7 @@ export class FluidGPU {
 
     this.params = {
       dt: 0.15, gravity: -0.2, stiffness: 14, restDensity: 4, viscosity: 0.03, band: 1.6,
+      damping: 0.9985, // velocity kept per step
       hand: null, // {x, bottom, z, r, vx, vy, vz} in cells
     };
     this.latest = null; // {particles: Float32Array(count*4), heights: Int32Array, flow: Int32Array}
@@ -257,8 +261,28 @@ export class FluidGPU {
     return new FluidGPU(device, opts);
   }
 
-  reset() {
+  /** Back to the starting water, already settled. */
+  async reset() {
     this.device.queue.writeBuffer(this.particleBuf, 0, this.initialParticles);
+    await this.settle();
+  }
+
+  /**
+   * Let freshly poured water settle before anyone sees it: the seeded lattice is a little too
+   * dense and sags under its own weight, which would otherwise slosh for many seconds. Run it
+   * hidden with heavy damping until it's still.
+   */
+  async settle(frames = 160) {
+    const keep = this.params.damping, hand = this.params.hand;
+    this.params.hand = null;
+    for (let i = 0; i < frames; i++) {
+      this.params.damping = i < frames * 0.75 ? 0.9 : 0.97;
+      this.step(3);
+      if (i % 40 === 39) await this.device.queue.onSubmittedWorkDone();
+    }
+    await this.device.queue.onSubmittedWorkDone();
+    this.params.damping = keep;
+    this.params.hand = hand;
   }
 
   writeParams() {
@@ -268,7 +292,7 @@ export class FluidGPU {
       p.dt, p.gravity, p.stiffness, p.restDensity,
       p.viscosity, 1e6, h ? 1 : 0, p.band,
       h ? h.x : 0, h ? h.bottom : 0, h ? h.z : 0, h ? h.r : 0,
-      h ? h.vx : 0, h ? h.vy : 0, h ? h.vz : 0, 0,
+      h ? h.vx : 0, h ? h.vy : 0, h ? h.vz : 0, p.damping,
     ]);
     this.device.queue.writeBuffer(this.paramBuf, 0, a);
   }

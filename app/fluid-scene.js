@@ -296,7 +296,11 @@ export class FluidScene extends WaterScene {
 
     const L = f.latest;
     if (L) {
-      this.particleAttr.array.set(L.particles);
+      // ease the drawn particles towards the simulated ones: grid-scale jitter no longer shimmers
+      const a = this.particleAttr.array, src = L.particles;
+      if (!this.drawnOnce) { a.set(src); this.drawnOnce = true; } else {
+        for (let i = 0; i < a.length; i++) a[i] += (src[i] - a[i]) * 0.5;
+      }
       this.particleAttr.needsUpdate = true;
       this.particleGeo.setDrawRange(0, f.count);
       this.readSurface(L);
@@ -310,12 +314,14 @@ export class FluidScene extends WaterScene {
     const [GX, , GZ] = GRID;
     const heights = this.colHeights ??= new Float32Array(GX * GZ);
     for (let i = 0; i < GX * GZ; i++) {
-      heights[i] = L.heights[i] > 0 ? (L.heights[i] / 1000 - 2) * DX + DX * 0.6 : WL;
+      const target = L.heights[i] > 0 ? (L.heights[i] / 1000 - 2) * DX + DX * 0.6 : WL;
+      heights[i] = this.heightsReady ? heights[i] + (target - heights[i]) * 0.35 : target; // a steady waterline
       const c = L.flow[i * 3 + 2];
       const toWorld = DX * this.simPerSecond / 10000;
       this.flowCells.vx[i] = c ? (L.flow[i * 3] / c) * toWorld : 0;
       this.flowCells.vz[i] = c ? (L.flow[i * 3 + 1] / c) * toWorld : 0;
     }
+    this.heightsReady = true;
     // resample onto the caustics texture grid (160 × 96)
     const d = this.hData, toHalf = THREE.DataUtils.toHalfFloat, NX = 160, NZ = 96;
     for (let j = 0; j < NZ; j++) {

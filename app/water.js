@@ -1,57 +1,88 @@
-// 물놀이 — a glass tank of water to play with. Put a hand in (or drag the mouse through
-// it) and the water follows: waves, reflections off the glass, foam where they meet,
-// spray and bubbles, and a toy surfer riding whatever you make.
+// 물놀이 — a glass tank of water to play with. Where WebGPU is available the water is
+// jeantimex/fluid's particle simulation (vendor/jfluid): an open hand in the water pushes it,
+// a pinch pulls it. Elsewhere, the surface-sheet tank (water-scene.js) with the same controls.
 import { WaterScene } from './water-scene.js';
-import { FluidScene, GRID, FLUID_FILL } from './fluid-scene.js';
-import { FluidGPU } from './fluid-gpu.js';
 import { createShell } from './shell.js';
 
 const $ = (sel) => document.querySelector(sel);
-// Particle water where WebGPU is available; the surface-sheet version everywhere else.
-const fluid = await FluidGPU.create({ grid: GRID, fill: FLUID_FILL }).catch(() => null);
-const scene = fluid ? new FluidScene($('#stage'), fluid) : new WaterScene($('#stage'));
-const shell = createShell({ scene, gameId: 'water' });
-const { onStage } = shell;
 
-let mouseDown = false;
+let tank = null;
+if (navigator.gpu) {
+  document.body.classList.add('fluid'); // the canvas needs its size before WebGPU sets it up
+  try {
+    const { createTank } = await import('../vendor/jfluid/water-tank.js');
+    tank = await createTank($('#fluid'), { elevation: 10 });
+  } catch (e) {
+    console.warn('particle water unavailable, falling back', e);
+    tank = null;
+  }
+}
+document.body.classList.toggle('fluid', Boolean(tank));
+
+// The shell drives a three.js stage for the 3D hand; with the particle tank there is no stage,
+// so it gets a stand-in and the hand is shown as a ring over the water.
+const surface = tank ? null : new WaterScene($('#stage'));
+const stage = surface ?? { setHand() {}, handSide: () => null, setShift() {} };
+const shell = createShell({ scene: stage, gameId: 'water' });
+const { onStage } = shell;
+const ring = $('#dip');
+
+let mouseDown = false, mouseMode = 'push';
 let lastHand = 0;
+
+function stir(x, y, mode) {
+  if (tank) tank.setHand(x, y, mode);
+  else surface.setStir(Boolean(mode), x, y);
+  ring.hidden = !mode;
+  if (mode) {
+    ring.style.transform = `translate(${x}px, ${y}px)`;
+    ring.classList.toggle('pull', mode === 'pull');
+  }
+}
+
+const inWater = (x, y) => (tank ? document.elementFromPoint(x, y) === $('#fluid') : onStage(x, y));
 
 shell.attach({
   modalOpen: () => shell.introOpen(),
   dragging: () => mouseDown,
-  startDrag(x, y) {
-    if (shell.introOpen() || !onStage(x, y)) return false;
-    mouseDown = true;
-    scene.pointer = { x, y };
-    scene.setStir(true, x, y);
-    return true;
-  },
-  moveDrag(x, y) {
-    if (!mouseDown) return;
-    scene.pointer = { x, y };
-    scene.setStir(true, x, y);
-  },
-  endDrag() { mouseDown = false; },
-  cancelDrag() { mouseDown = false; },
+  // pinches and presses: a real hand is handled in onHandPose, so only claim it here
+  startDrag(x, y) { return !shell.introOpen() && inWater(x, y); },
+  moveDrag() {},
+  endDrag() {},
+  cancelDrag() {},
   updateHover() {},
-  // A tracked hand is always "in the water": no pinch needed, its movement is the stroke.
+  // A tracked hand is in the water whenever it's seen: open it to push water, pinch to pull.
   onHandPose(frame) {
     if (shell.introOpen()) return;
     lastHand = performance.now();
-    scene.setStir(true, frame.x * innerWidth, frame.y * innerHeight);
+    stir(frame.x * innerWidth, frame.y * innerHeight, frame.pinching ? 'pull' : 'push');
   },
   refresh() {},
 });
 
-// Out of the water when the mouse is released and no hand has been seen for a moment.
+// Out of the water once the mouse is released and no hand has been seen for a moment.
 (function watch() {
-  if (!mouseDown && performance.now() - lastHand > 180) scene.setStir(false);
+  if (!mouseDown && performance.now() - lastHand > 180) stir(0, 0, null);
   requestAnimationFrame(watch);
 })();
 
-$('#b-calm').addEventListener('click', () => (fluid ? fluid.reset() : scene.sim.calm()));
-$('#b-surfer').addEventListener('click', () => Object.assign(scene.surfer, { x: 0, z: 0, vx: 0, vz: 0 }));
-for (const id of ['#btn-start-mouse', '#btn-start-cam']) $(id).addEventListener('click', () => {}, { once: true });
+// Mouse: drag to push, Shift-drag or right-drag to pull.
+const water = tank ? $('#fluid') : $('#stage');
+water.addEventListener('contextmenu', (e) => e.preventDefault());
+water.addEventListener('pointerdown', (e) => {
+  if (shell.introOpen()) return;
+  mouseDown = true;
+  mouseMode = e.button === 2 || e.shiftKey ? 'pull' : 'push';
+  water.setPointerCapture(e.pointerId);
+  stir(e.clientX, e.clientY, mouseMode);
+});
+water.addEventListener('pointermove', (e) => { if (mouseDown) stir(e.clientX, e.clientY, mouseMode); });
+water.addEventListener('pointerup', () => { mouseDown = false; });
+water.addEventListener('pointercancel', () => { mouseDown = false; });
+
+$('#b-calm').addEventListener('click', () => (tank ? tank.reset() : surface.sim.calm()));
+$('#b-surfer').hidden = Boolean(tank);
+$('#b-surfer').addEventListener('click', () => surface && Object.assign(surface.surfer, { x: 0, z: 0, vx: 0, vz: 0 }));
 
 // Debug / test handle
-window.__water = { scene, fluid, hand: shell.injectHandFrame };
+window.__water = { tank, surface, stir, hand: shell.injectHandFrame };
