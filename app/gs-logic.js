@@ -420,7 +420,7 @@ export function rankHand(st, p) {
       // no match: throwing it gives the others a card; prefer cheap ones nobody needs
       const risk = Math.max(...[0, 1, 2].filter((o) => o !== p).map((o) => cardValue(st, o, id)));
       value = -risk * 0.6 - (inHand >= 2 ? 1.5 : 0);
-      reason = inHand >= 2 ? '짝이 없지만 같은 달을 더 들고 있어 아깝습니다' : '짝이 없어 버립니다 — 상대에게 줘도 덜 아픈 패';
+      reason = inHand >= 2 ? '짝은 없지만 같은 달을 더 들고 있어, 다음에 이 달이 나오면 먹을 수 있습니다' : '가져올 짝이 없으니, 바닥에 놓았을 때 상대가 가져가도 덜 아픈 패를 냅니다';
     }
     return { card: id, value, reason, takes };
   });

@@ -191,6 +191,7 @@ function makeAnimator(p, drop) {
       }
       await sleep(p === 0 ? 150 : 250);
     } else if (ev.type === 'shake') {
+      note(`${p === 0 ? '내가' : `${NAMES[p]}가`} 같은 달 세 장을 들고 있다고 보여 줬습니다(<b>흔들기</b>). 이 판을 이기면 점수가 <b>2배</b>가 됩니다.`);
       bigSay('흔들기!');
       sfx('fan', { vol: 0.8, pan: PAN[p] });
       if (p !== 0) {
@@ -207,6 +208,8 @@ function makeAnimator(p, drop) {
       await new Promise((resolve) => scene.slam(ev.card, floorTarget(ev.card), 0.35, () => { slapSound(p, 0.35); resolve(); }));
       await sleep(120);
     } else if (ev.type === 'capture') {
+      if (p !== 0) note(`${NAMES[p]}가 가져감: ${ev.cards.map(mini).join('')} ${ev.cards.some((id) => KIND_OF(id) === 'gwang') ? '광을 모으고 있으니 조심하세요.' : ''}`);
+      else note(`내가 가져옴: ${ev.cards.map(mini).join('')}`);
       sfx('slide', { vol: 0.6, pan: PAN[p], delay: 0.05 });
       for (const id of ev.cards) scene.setGlow(id, { color: COLOR.hint, intensity: 0.6, pulse: false });
       await sleep(260);
@@ -223,10 +226,14 @@ function makeAnimator(p, drop) {
       layoutAll();
       await sleep(900);
     } else if (ev.type === 'steal') {
+      if (ev.from === 0) note(`${NAMES[ev.to]}에게 내 피 ${mini(ev.card)} 한 장을 뺏겼습니다.`);
       sfx('slide', { vol: 0.5, pan: PAN[ev.to] });
       layoutAll();
       await sleep(250);
     } else if (ev.type === 'special') {
+      const who = p === 0 ? '내가' : `${NAMES[p]}가`;
+      const notes = ev.names.map((n) => SPECIAL_NOTE[n]?.(who)).filter(Boolean);
+      if (notes.length) note(notes.join('<br>'));
       const names = ev.names.filter((n) => n !== '뻑' && n !== '폭탄');
       if (names.length) {
         bigSay(`${names.join(' · ')}!`);
@@ -602,6 +609,23 @@ function applyGlows(held = null) {
   if (guideOn && state.recommend?.[0]) scene.setGlow(state.recommend[0].card, { color: COLOR.hint, intensity: 0.7, pulse: true });
 }
 
+/** A line for the guide about what just happened on the table. */
+function note(text) {
+  state.note = { text, at: performance.now() };
+  $('#guide-body').dataset.key = '';
+  renderGuide();
+}
+
+const SPECIAL_NOTE = {
+  '뻑': (who) => `${who} 낸 패와 뒤집은 패가 같은 달이라 <b>세 장이 바닥에 묶였습니다(뻑)</b>. 이 달의 남은 한 장을 가진 사람이 네 장을 모두 가져가고, 피도 한 장씩 받습니다.`,
+  '쪽': (who) => `${who} 짝 없이 낸 패를 뒤집은 패가 바로 맞췄습니다(<b>쪽</b>). 두 장을 가져가고 다른 두 사람에게서 <b>피를 한 장씩</b> 받습니다.`,
+  '따닥': (who) => `바닥의 두 장 + 낸 패 + 뒤집은 패, 같은 달 <b>네 장을 모두</b> ${who} 가져갔습니다(<b>따닥</b>). 피도 한 장씩 받습니다.`,
+  '싹쓸이': (who) => `${who} 바닥을 <b>모두 쓸어</b> 갔습니다(<b>싹쓸이</b>). 피를 한 장씩 받습니다.`,
+  '뻑 먹기': (who) => `뻑으로 묶여 있던 세 장을 ${who} 네 번째 패로 가져갔습니다(<b>뻑 먹기</b>). 피도 한 장씩 받습니다.`,
+  '자뻑': (who) => `자기가 싼 뻑을 ${who} 직접 먹었습니다(<b>자뻑</b>). 피를 <b>두 장씩</b> 받습니다.`,
+  '폭탄': (who) => `같은 달 세 장을 한꺼번에 내 바닥의 한 장까지 ${who} 네 장을 먹었습니다(<b>폭탄</b>). 이기면 점수 2배, 대신 다음 두 번은 손패 없이 더미만 뒤집습니다.`,
+};
+
 function say(p, text) {
   state.say[p] = { text, at: performance.now() };
   renderSeats();
@@ -634,53 +658,114 @@ function bannerText() {
   }
 }
 
-function renderGuide() {
+const mini = (id) => `<img class="gs-mini" src="${cardSrc(id)}" alt="${cardName(id)}">`;
+const H = (t) => `<h3>${t}</h3>`;
+const P = (t) => `<p>${t}</p>`;
+const NUM = ['①', '②', '③', '④', '⑤', '⑥', '⑦'];
+
+/** What playing each hand card would do, for the numbered list (cards that take something first). */
+function candidates() {
   const st = state.st;
-  const body = $('#guide-body');
-  if (!guideOn || !st) { body.innerHTML = ''; return; }
-  const sc = score(st.caps[0]);
-  const need = sc.total >= WIN_MIN ? '' : nearestGoal(st.caps[0]);
-  let html = '';
-  if (state.phase === 'play' && state.recommend?.length) {
-    const best = state.recommend[0];
-    html += `<h3>내 차례 — ① 손패 내기</h3>`;
-    html += `<p>그중 <b class="rec">${eul(cardName(best.card))}</b> 추천합니다.</p><p class="why">이유 — ${best.reason}.</p>`;
-    const alt = state.recommend.slice(1, 3).filter((x) => x.takes.length);
-    if (alt.length) html += `<ol class="cands">${alt.map((x) => `<li>${cardName(x.card)} — ${x.reason}</li>`).join('')}</ol>`;
-  } else if (state.phase === 'flip' || state.phase === 'flip-only') {
-    html += `<h3>② 더미 뒤집기</h3><p>더미 맨 위 패를 뒤집어 같은 달이 있으면 한 번 더 가져옵니다.</p>`;
-  } else if (state.phase === 'choose') {
-    const best = bestPick(st, 0, state.options);
-    html += `<h3>둘 중 하나</h3><p><b class="rec">${eul(cardName(best))}</b> 추천합니다.</p>`;
-  } else if (state.phase === 'decide') {
-    html += `<h3>고 · 스톱</h3><p>${shouldGo(st, 0) ? '상대가 아직 멀어 <b class="rec">고</b>가 유리해 보입니다.' : '상대가 가깝거나 남은 패가 적어 <b class="rec">스톱</b>을 추천합니다.'}</p>`;
-  } else if (state.phase === 'ai') {
-    html += `<h3>${NAMES[st.turn]} 차례</h3><p>상대가 내는 패와 뒤집는 패를 보세요. 바닥에 남은 달이 다음 내 기회입니다.</p>`;
-  }
-  html += `<p class="goal">${sc.total >= WIN_MIN ? `지금 <b>${sc.total}점</b> — 고/스톱 가능` : `3점까지: ${need}`}</p>`;
-  body.innerHTML = html;
+  return (state.recommend ?? []).map((r) => {
+    const on = matchesFor(st, r.card);
+    let what;
+    if (on.length === 3) what = `뻑 난 ${on.map(mini).join('')} 세 장을 모두 가져옴 + 피 한 장씩`;
+    else if (on.length === 2) what = `${on.map(mini).join('')} 중 하나를 가져옴 (내려놓는 쪽)`;
+    else if (on.length === 1) what = `${mini(on[0])} ${eul(CARDS[on[0]].name)} 가져옴`;
+    else what = '바닥에 짝이 없음 — 그냥 바닥에 놓입니다';
+    return { ...r, what, takes: on.length > 0 };
+  });
 }
 
-/** The closest way to 3 points, in words. */
-function nearestGoal(caps) {
+function renderGuide() {
+  const st = state.st;
+  const box = $('#guide-body');
+  if (!guideOn) { box.innerHTML = ''; return; }
+  const hand = shell.handActive();
+  const key = [state.phase, st?.turn, st?.hands[0].join(','), st?.floor.join(','), st?.caps[0].length, state.options?.join(','), state.note?.at, hand].join('|');
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  let html = '';
+  const ph = state.phase;
+  const pinch = hand ? '엄지와 검지로 <b>집고</b>' : '마우스로 <b>누른 채</b>';
+
+  if (!st || ph === 'idle' || ph === 'deal') {
+    html += H('고스톱이란');
+    html += P('화투 48장은 <b>1월부터 12월까지 달마다 4장</b>씩입니다. 같은 그림(같은 달) 두 장을 맞추면 가져옵니다.');
+    html += P('가져온 패로 <b>먼저 3점</b>을 만들면 <b>고</b>(계속) 또는 <b>스톱</b>(끝내고 돈 받기)을 고릅니다.');
+    html += H('패의 종류');
+    html += P(`${mini(0)} <b>광</b> — 光 글자. 3장 모으면 3점<br>${mini(4)} <b>열끗</b> — 새·동물. 5장이면 1점<br>${mini(1)} <b>띠</b> — 리본. 5장이면 1점<br>${mini(2)} <b>피</b> — 그림만. 10장이면 1점 ${mini(41)} 쌍피는 2장 몫`);
+    html += H('한 차례에 하는 일');
+    html += P('<b>① 손패 한 장 내기</b> → <b>② 가운데 더미 한 장 뒤집기</b>. 두 번 모두 같은 달이 바닥에 있으면 가져옵니다.');
+    html += P('지금 패를 나누는 중입니다. 손에 7장, 바닥에 6장이 깔립니다.');
+  } else if (ph === 'play') {
+    const list = candidates();
+    const best = list[0];
+    html += H('내 차례 — ① 손패 내기');
+    html += P(`손패 한 장을 ${pinch} 바닥의 <b>같은 달 그림 위에</b> 놓으세요. 짝이 있는 패는 살짝 올라와 있고, 들면 가져올 바닥 패가 <b>금빛</b>으로 빛납니다.`);
+    const takers = list.filter((x) => x.takes).slice(0, 4);
+    if (takers.length) {
+      html += P(`짝이 있는 패 <b>${takers.length}장</b>:`) + `<ol class="cands">${takers.map((x, i) => `<li class="${x.card === best.card ? 'best' : ''}"><span class="no">${NUM[i]}</span>${mini(x.card)}<span>${x.what}</span></li>`).join('')}</ol>`;
+    } else html += P('바닥에 짝이 되는 패가 <b>하나도 없습니다</b>. 한 장을 바닥에 내려놓아야 합니다.');
+    const n = takers.findIndex((x) => x.card === best.card);
+    html += P(`그중 <b class="rec">${n >= 0 ? `${NUM[n]} ` : ''}${eul(cardName(best.card))}</b> 추천합니다. <span class="why">이유 — ${best.reason}.</span>`);
+    const sp = specials(st, 0);
+    for (const x of sp) {
+      html += x.kind === 'bomb'
+        ? P(`<b>폭탄 가능</b> — ${x.month}월을 세 장 들고 있고 바닥에 한 장 있습니다. 그 달 패를 내면 세 장이 한꺼번에 나가 네 장을 모두 먹고, 이기면 점수 2배입니다.`)
+        : P(`<b>흔들기 가능</b> — ${x.month}월 세 장을 들고 있습니다. 그 달 패를 내면 자동으로 흔들어 보여 주고, 이기면 점수 2배입니다.`);
+    }
+    html += P('<span class="why">팁: 세게(빠르게) 내려칠수록 소리가 커질 뿐, 결과는 같습니다.</span>');
+  } else if (ph === 'flip' || ph === 'flip-only') {
+    html += H('② 더미 뒤집기');
+    if (ph === 'flip-only') html += P('폭탄을 한 덕분에 이번에는 <b>손패 없이</b> 더미만 뒤집습니다.');
+    html += P(`가운데 <b>금빛 링</b>이 있는 더미를 ${hand ? '집으세요' : '누르세요'}. 맨 위 패가 뒤집혀 바닥에 떨어집니다.`);
+    html += P('뒤집은 패와 같은 달이 바닥에 있으면 <b>한 번 더 가져옵니다</b>. 방금 낸 패와 같은 달이면:');
+    html += `<ol class="cands"><li><span class="no">·</span><span>바닥에 짝이 없던 패 → <b>쪽</b>: 두 장 먹고 피 뺏기</span></li><li><span class="no">·</span><span>한 장과 짝지은 패 → <b>뻑</b>: 세 장이 묶여 못 먹음</span></li><li><span class="no">·</span><span>두 장 중 하나를 먹은 패 → <b>따닥</b>: 네 장 다 먹고 피 뺏기</span></li></ol>`;
+  } else if (ph === 'choose') {
+    const best = bestPick(st, 0, state.options);
+    html += H('둘 중 하나 고르기');
+    html += P(`뒤집은 패와 같은 달이 바닥에 <b>두 장</b> 있습니다: ${state.options.map(mini).join('')} 가져올 한 장을 ${hand ? '집으세요' : '누르세요'}.`);
+    html += P(`<b class="rec">${eul(cardName(best))}</b> 추천합니다. <span class="why">이유 — ${KIND_OF(best) === 'pi' ? '피가 쌍피라 두 장 몫입니다' : `${{ gwang: '광', yeol: '열끗', tti: '띠' }[KIND_OF(best)]}은 피보다 점수 내기가 쉽습니다`}.</span>`);
+  } else if (ph === 'decide') {
+    const go = shouldGo(st, 0);
+    html += H('3점 났습니다 — 고? 스톱?');
+    html += P('<b>스톱</b> — 지금 점수로 판을 끝내고 두 사람에게서 돈을 받습니다.');
+    html += P('<b>고</b> — 계속 칩니다. 다음에 나면 1고 +1점, 2고 +2점, 3고부터는 두 배씩. 하지만 그 전에 <b>남이 먼저 나면</b> 두 사람 몫을 혼자 물어냅니다(<b>고박</b>).');
+    html += P(hand ? '<b>엄지를 올리면 고</b>, <b>손바닥을 펴 보이면 스톱</b>. 1초 동안 유지하세요.' : '버튼을 누르거나, 카메라가 켜져 있으면 엄지(고)·손바닥(스톱)을 1초 유지하세요.');
+    html += P(`추천: <b class="rec">${go ? '고' : '스톱'}</b> — <span class="why">${go ? '남은 패가 넉넉하고 상대 점수가 낮아 더 키울 만합니다' : '상대가 점수에 가깝거나 남은 패가 적어, 받을 수 있을 때 받는 게 안전합니다'}.</span>`);
+  } else if (ph === 'ai' || ph === 'busy') {
+    html += H(st.turn === 0 ? '내 패가 움직이는 중' : `${NAMES[st.turn]} 차례`);
+    html += P(st.turn === 0 ? '낸 패와 뒤집은 패로 무엇을 가져오는지 보세요.' : '상대가 무엇을 내고 가져가는지 보세요. 바닥에 남는 달이 다음 내 기회입니다.');
+  } else if (ph === 'over') {
+    html += H('판이 끝났습니다');
+    html += P('결과 창에 점수 계산이 나옵니다. <b>광박</b>(광이 한 장도 없음)·<b>피박</b>(피가 6장 미만)인 사람은 두 배를 냅니다.');
+  }
+
+  if (state.note && performance.now() - state.note.at < 12000 && ph !== 'idle' && ph !== 'deal') {
+    html += `<div class="note">${H('방금 일어난 일')}${P(state.note.text)}</div>`;
+  }
+  if (st) html += progressHtml(st.caps[0]);
+  box.innerHTML = html;
+}
+
+/** My piles against each scoring goal, as small bars. */
+function progressHtml(caps) {
   const c = caps.map((id) => CARDS[id]);
-  const g = c.filter((x) => x.kind === 'gwang').length;
-  const pi = score(caps).pi;
-  const tti = c.filter((x) => x.kind === 'tti').length;
-  const yeol = c.filter((x) => x.kind === 'yeol').length;
-  const opts = [
-    [3 - g, `광 ${3 - g}장 더`],
-    [10 - pi, `피 ${10 - pi}장 더 (1점)`],
-    [5 - tti, `띠 ${5 - tti}장 더 (1점)`],
-    [5 - yeol, `열끗 ${5 - yeol}장 더 (1점)`],
-  ];
+  const sc = score(caps);
+  const row = (name, have, need, pts) => `<div class="gs-prog${have >= need ? ' done' : ''}"><span>${name}</span><i><b style="width:${Math.min(100, (have / need) * 100)}%"></b></i><em>${have}/${need}${pts ? ` · ${pts}` : ''}</em></div>`;
+  let h = `<div class="gs-progress">${H(`내 점수 ${sc.total}점 <small>3점이면 고/스톱</small>`)}`;
+  h += row('광', c.filter((x) => x.kind === 'gwang').length, 3, '3점');
+  h += row('열끗', sc.yeol, 5, '1점');
+  h += row('띠', c.filter((x) => x.kind === 'tti').length, 5, '1점');
+  h += row('피', sc.pi, 10, '1점');
   for (const [r, nm] of [['hong', '홍단'], ['cheong', '청단'], ['cho', '초단']]) {
     const n = c.filter((x) => x.ribbon === r).length;
-    if (n) opts.push([3 - n, `${nm}까지 ${3 - n}장`]);
+    if (n) h += row(nm, n, 3, '3점');
   }
   const birds = c.filter((x) => x.bird).length;
-  if (birds) opts.push([3 - birds, `고도리까지 ${3 - birds}장`]);
-  return opts.filter(([r]) => r > 0).sort((a, b) => a[0] - b[0]).slice(0, 2).map(([, t]) => t).join(' · ');
+  if (birds) h += row('고도리', birds, 3, '5점');
+  return `${h}</div>`;
 }
 
 function render() {
@@ -723,7 +808,10 @@ function placeTags() {
   const box = $('#tile-tags');
   const tags = [];
   if (guideOn && state.phase === 'play' && !state.drag && !modalOpen() && state.recommend?.length) {
-    tags.push({ id: state.recommend[0].card, label: '추천', best: true });
+    const best = state.recommend[0].card;
+    state.recommend.filter((r) => matchesFor(state.st, r.card).length).slice(0, 4)
+      .forEach((r, i) => tags.push({ id: r.card, label: r.card === best ? `${NUM[i]} 추천` : NUM[i], best: r.card === best }));
+    if (!tags.some((t) => t.best)) tags.push({ id: best, label: '추천', best: true });
   }
   const flipTop = state.flipCard ?? state.st?.deck[0];
   if ((state.phase === 'flip' || state.phase === 'flip-only') && flipTop !== undefined && flipTop !== null) tags.push({ id: flipTop, label: '뒤집기', best: true });
@@ -754,7 +842,8 @@ function setGuide(on) {
   try { localStorage.setItem(GUIDE_KEY, on ? 'on' : 'off'); } catch { /* ignore */ }
   $('#guide-toggle').textContent = on ? '가이드 끄기' : '가이드 켜기';
   $('#guide-start').checked = on;
-  document.body.classList.toggle('guide-off', !on);
+  document.body.classList.toggle('guide', on);
+  $('#guide-body').dataset.key = '';
   if (state.st) { applyGlows(); render(); }
 }
 
