@@ -1,6 +1,6 @@
 // Go-Stop (3 players) rules engine: the 48 hwatu cards, dealing, one turn's matching
 // (뻑 · 쪽 · 따닥 · 싹쓸이 · 폭탄 · 흔들기), scoring, go multipliers and settlement
-// (광박 · 피박 · 고박 · 멍텅구리 · 나가리). Pure: no DOM, no randomness except the rng passed in.
+// (광박 · 피박 · 고박 · 멍박 · 나가리). Pure: no DOM, no randomness except the rng passed in.
 
 export const PLAYERS = 3;
 export const HAND = 7, FLOOR = 6;
@@ -101,7 +101,7 @@ export function score(caps) {
 
 /** Points a pile would be worth to its owner right now, with go bonuses applied. */
 export function goPoints(base, go) {
-  return (base + Math.min(go, 2)) * 2 ** Math.max(0, go - 2);
+  return (base + go) * 2 ** Math.max(0, go - 2); // 1고 +1, 2고 +2, 3고 (+3)×2, 4고 (+4)×4
 }
 
 // ---------- a round ----------
@@ -126,7 +126,8 @@ export function newRound({ dealer = 0, nagari = 0, rng = Math.random, deck = nul
     };
     for (let p = 0; p < PLAYERS; p++) {
       const m = monthCounts(hands[p]).findIndex((n) => n === 4);
-      if (m > 0 && !st.over) st.over = { kind: 'win', winner: p, reason: '총통', flat: 10, month: m };
+      const fiveGwang = hands[p].filter((id) => CARDS[id].kind === 'gwang').length === 5;
+      if ((m > 0 || fiveGwang) && !st.over) st.over = { kind: 'win', winner: p, reason: '총통', flat: 10, month: m > 0 ? m : null };
     }
     return st;
   }
@@ -180,7 +181,9 @@ export async function playTurn(st, p, card, opts = {}) {
   const events = [];
   const emit = async (ev) => { events.push(ev); if (opts.onEvent) await opts.onEvent(ev); };
   const special = [];
-  const steal = async () => { const e = []; stealPi(st, p, e); for (const ev of e) await emit(ev); };
+  // 마지막 차례에는 뻑 먹기·따닥·쪽·싹쓸이를 해도 피를 받지 않는다
+  const lastTurn = () => st.deck.length === 0 && st.turnsLeft.every((n, i) => i === p || n <= 0);
+  const steal = async () => { if (lastTurn()) return; const e = []; stealPi(st, p, e); for (const ev of e) await emit(ev); };
   const capture = async (ids) => { const e = []; take(st, p, ids, e); await emit(e[0]); };
 
   // ---- 1. the hand card ----
@@ -263,7 +266,7 @@ export async function playTurn(st, p, card, opts = {}) {
     if (pendingHand) {
       const stack = k === 3;
       await capture(stack ? byMonth(st.floor, m) : pendingHand);
-      if (stack) {
+      if (stack && st.ppeokBy[m] !== undefined) { // a stack dealt onto the floor is not a 뻑
         const by = st.ppeokBy[m];
         delete st.ppeokBy[m];
         special.push(by === p ? '자뻑' : '뻑 먹기');
@@ -282,9 +285,11 @@ export async function playTurn(st, p, card, opts = {}) {
         const by = st.ppeokBy[m2];
         delete st.ppeokBy[m2];
         await capture(byMonth(st.floor, m2));
-        special.push(by === p ? '자뻑' : '뻑 먹기');
-        await steal();
-        if (by === p) await steal();
+        if (by !== undefined) {
+          special.push(by === p ? '자뻑' : '뻑 먹기');
+          await steal();
+          if (by === p) await steal();
+        }
       } else await emit({ type: 'lay', p, card: flip });
     }
   }
@@ -299,7 +304,7 @@ export async function playTurn(st, p, card, opts = {}) {
   // ---- 3. can this player stop? ----
   const s = score(st.caps[p]);
   if (st.ppeoks[p] >= 3) {
-    st.over = { kind: 'win', winner: p, reason: '삼뻑', flat: 10 };
+    st.over = { kind: 'win', winner: p, reason: '삼뻑', flat: 3 };
   } else if (s.total >= WIN_MIN && s.total > st.goScore[p]) {
     const last = st.turnsLeft[p] <= 0;
     if (last) st.over = { kind: 'win', winner: p, reason: '스톱' };
@@ -332,7 +337,7 @@ export function decide(st, go) {
 
 /**
  * What each loser pays the winner, in points (multiply by the stake). Handles go bonuses,
- * 흔들기/폭탄, 멍텅구리, 광박, 피박, 고박 and carried-over 나가리.
+ * 흔들기/폭탄, 멍박, 광박, 피박, 고박 and carried-over 나가리.
  */
 export function settle(st) {
   const o = st.over;
@@ -348,7 +353,7 @@ export function settle(st) {
   }
   let x = 1;
   if (st.shakes[w]) { x *= 2 ** st.shakes[w]; mult.push({ name: st.shakes[w] > 1 ? `흔들기·폭탄 ${st.shakes[w]}번` : '흔들기·폭탄', x: 2 ** st.shakes[w] }); }
-  if (!o.flat && s.yeol >= 7) { x *= 2; mult.push({ name: '멍텅구리', x: 2 }); }
+  if (!o.flat && s.yeol >= 7) { x *= 2; mult.push({ name: '멍박', x: 2 }); }
   if (st.nagari) { x *= 2 ** st.nagari; mult.push({ name: `나가리 ${st.nagari}번`, x: 2 ** st.nagari }); }
   points *= x;
 
@@ -360,7 +365,7 @@ export function settle(st) {
     const ls = score(st.caps[l]);
     let v = points;
     if (s.parts.some((q) => /광/.test(q.name)) && ls.gwang === 0) { v *= 2; bak[l].push('광박'); }
-    if (s.parts.some((q) => q.name.startsWith('피')) && ls.pi < 6) { v *= 2; bak[l].push('피박'); }
+    if (s.parts.some((q) => q.name.startsWith('피')) && ls.pi >= 1 && ls.pi <= 5) { v *= 2; bak[l].push('피박'); }
     pay[l] = v;
   }
   // 고박: a loser who called go and then lost pays everyone's share

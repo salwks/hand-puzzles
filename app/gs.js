@@ -274,13 +274,9 @@ async function playerTurn() {
   if (card !== null) {
     const sp = specials(st, 0).find((s) => s.month === monthOf(card));
     if (sp) opts[sp.kind] = true;
-    const matches = matchesFor(st, card);
-    if (matches.length === 2 && move.point) {
-      // dropped on one of the two: take that one
-      const near = matches.map((id) => ({ id, d: scene.card(id).root.position.distanceTo(move.point) })).sort((a, b) => a.d - b.d)[0].id;
-      opts.choose = async (o, stage) => (stage === 'hand' ? (o.includes(near) ? near : o[0]) : playerChoose(o));
-    } else opts.choose = async (o, stage) => (stage === 'hand' ? bestPick(st, 0, o) : playerChoose(o));
-  } else opts.choose = async (o) => playerChoose(o);
+  }
+  // two of the month on the floor: the player picks which one to take, for the hand card and the flip alike
+  opts.choose = async (o, stage) => playerChoose(o, stage === 'hand' ? card : null);
   state.phase = 'busy';
   log.event('play', { card, pass: card === null, strength: move.strength });
   await playTurn(st, 0, card, opts);
@@ -308,16 +304,34 @@ function waitForFlip(top) {
   });
 }
 
-function playerChoose(options) {
+/**
+ * Two cards of a month lie stacked on the floor: fan them out, lifted and facing the player,
+ * and wait for a pick. `held` is the hand card being played (it hovers over the choice).
+ */
+function playerChoose(options, held = null) {
   state.phase = 'choose';
   state.options = options;
-  for (const id of options) scene.setGlow(id, { color: COLOR.hover, intensity: 0.9, pulse: true });
+  const base = scene.card(options[0]).root.position;
+  options.forEach((id, i) => {
+    const t = scene.revealPose();
+    t.p.set(base.x + (i - (options.length - 1) / 2) * 1.0, 0.55, base.z + 0.15);
+    t.s = 1.15;
+    scene.place(id, t, { dur: 0.3, arc: 0.1 });
+    scene.setGlow(id, { color: COLOR.hover, intensity: 0.3, pulse: true }); // faint, so the art stays readable
+  });
+  if (held !== null) {
+    const t = scene.revealPose();
+    t.p.set(base.x, 1.35, base.z - 0.35);
+    scene.place(held, t, { dur: 0.25, arc: 0.05 });
+  }
+  sfx('fan', { vol: 0.4 });
   render();
   return new Promise((resolve) => { state.wait = { kind: 'choose', resolve }; }).then((id) => {
     state.wait = null;
     for (const x of options) scene.setGlow(x, null);
     state.options = [];
     state.phase = 'busy';
+    layoutAll(); // the fanned cards settle back into their pile
     render();
     return id;
   });
@@ -357,9 +371,9 @@ async function playerDecide() {
   state.phase = 'decide';
   $('#dec-score').textContent = goPoints(sc.total, st.go[0]);
   $('#dec-parts').innerHTML = sc.parts.map((q) => `<div><span>${q.name}</span><b>${q.pts}</b></div>`).join('')
-    + (st.go[0] ? `<div><span>${st.go[0]}고</span><b>+${Math.min(st.go[0], 2)}${st.go[0] >= 3 ? ` ×${2 ** (st.go[0] - 2)}` : ''}</b></div>` : '');
+    + (st.go[0] ? `<div><span>${st.go[0]}고</span><b>+${st.go[0]}${st.go[0] >= 3 ? ` ×${2 ** (st.go[0] - 2)}` : ''}</b></div>` : '');
   const threat = [1, 2].map((o) => ({ o, s: score(st.caps[o]).total })).sort((a, b) => b.s - a.s)[0];
-  $('#dec-go').textContent = `${st.go[0] + 1}고 — 다음에 나면 ${goPoints(sc.total, st.go[0] + 1)}점 이상${st.go[0] + 1 >= 3 ? ' (×2)' : ''}`;
+  $('#dec-go').textContent = `${st.go[0] + 1}고 — 다음에 나면 ${goPoints(sc.total, st.go[0] + 1)}점 이상`;
   $('#dec-risk').textContent = threat.s > 0
     ? `${NAMES[threat.o]}가 ${threat.s}점. 고 한 뒤 남이 먼저 나면 고박으로 혼자 물어냅니다.`
     : '상대 둘 다 아직 점수가 없습니다.';
@@ -446,7 +460,7 @@ function showResult({ r = null, title, over, text = '' }) {
     const groups = ['gwang', 'yeol', 'tti', 'pi'].map((k) => st.caps[w].filter((id) => KIND_OF(id) === k));
     $('#res-tiles').innerHTML = groups.filter((g) => g.length).map((g) => `<span class="gs-group">${g.map((id) => `<img class="gs-card" src="${cardSrc(id)}" alt="${cardName(id)}">`).join('')}</span>`).join('');
     const rows = r.score.parts.map((q, i) => `<div style="--i:${i}"><span>${q.name}</span><b>${q.pts}</b></div>`);
-    if (r.go) rows.push(`<div style="--i:${rows.length}"><span>${r.go}고</span><b>+${Math.min(r.go, 2)}</b></div>`);
+    if (r.go) rows.push(`<div style="--i:${rows.length}"><span>${r.go}고</span><b>+${r.go}</b></div>`);
     for (const m of r.mult) rows.push(`<div style="--i:${rows.length}"><span>${m.name}</span><b>×${m.x}</b></div>`);
     $('#res-yaku').innerHTML = r.reason === '총통' || r.reason === '삼뻑' ? `<div><span>${r.reason}</span><b>10</b></div>` : rows.join('');
     $('#res-points').innerHTML = `<span class="han">${r.points}점 × ${STAKE}</span><b>${fmt(r.delta[w] * STAKE)}</b><span class="split">${w === 0 ? '받은 돈' : `${NAMES[w]}가 받음`}</span>`;

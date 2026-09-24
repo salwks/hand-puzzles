@@ -41,7 +41,7 @@ eq('피 10 = 1', sc(tenPi), 1);
 eq('쌍피 counts 2', sc([...tenPi.slice(0, 8), C(12, 3)]), 1);
 eq('9월 열끗 as 쌍피', score([...tenPi.slice(0, 8), C(9, 0)]).pi, 10);
 eq('9월 stays 열끗 when that scores', score([C(2, 0), C(4, 0), C(5, 0), C(6, 0), C(9, 0)]).yeol, 5);
-eq('go points', [goPoints(4, 0), goPoints(4, 1), goPoints(4, 2), goPoints(4, 3), goPoints(4, 4)], [4, 5, 6, 12, 24]);
+eq('go points', [goPoints(4, 0), goPoints(4, 1), goPoints(4, 2), goPoints(4, 3), goPoints(4, 4)], [4, 5, 6, 14, 32]);
 
 // ---- turns ----
 { // plain pair on each step
@@ -123,7 +123,7 @@ eq('go points', [goPoints(4, 0), goPoints(4, 1), goPoints(4, 2), goPoints(4, 3),
   eq('고박 pays both', r2.delta, [20, -20, 0]);
   st.go = [3, 0, 0]; st.go[1] = 0; st.shakes[0] = 1; st.nagari = 1;
   const r3 = settle(st);
-  eq('3고 ×2, 흔들기 ×2, 나가리 ×2', r3.points, (4 + 2) * 2 * 2 * 2);
+  eq('3고 ×2, 흔들기 ×2, 나가리 ×2', r3.points, (4 + 3) * 2 * 2 * 2);
 }
 { // a go must be topped before the next decision
   const st = rig([C(1, 0)], [C(1, 2), C(5, 2)], [C(5, 3)]);
@@ -137,6 +137,27 @@ eq('go points', [goPoints(4, 0), goPoints(4, 1), goPoints(4, 2), goPoints(4, 3),
   const deck = [C(2, 0), C(2, 1), C(2, 2), C(2, 3), ...[...Array(48).keys()].filter((i) => G.monthOf(i) !== 2)];
   const st = newRound({ deck });
   eq('총통', [st.over?.reason, st.over?.winner], ['총통', 0]);
+}
+{ // 피박 exempts a player with no pi at all
+  const st = rig([], [], []);
+  st.caps = [[C(1, 0), C(3, 0), C(8, 0), ...tenPi], [C(12, 0)], [C(11, 0)]];
+  st.over = { kind: 'win', winner: 0, reason: '스톱' };
+  eq('no pi, no 피박', settle(st).bak, [[], [], []]);
+  st.caps[1].push(C(6, 2));
+  eq('1 pi is 피박', settle(st).bak[1], ['피박']);
+}
+{ // a month dealt three-deep is taken whole, with no pi changing hands
+  const st = rig([C(3, 3)], [C(3, 0), C(3, 1), C(3, 2)], [C(11, 2)]);
+  st.caps[1] = [C(10, 2)];
+  const ev = await run(st, 0, C(3, 3));
+  eq('dealt stack taken', st.caps[0].filter((id) => G.monthOf(id) === 3).length, 4);
+  eq('no steal for a dealt stack', [st.caps[1].length, ev.some((e) => e.type === 'special')], [1, false]);
+}
+{ // the very last turn: 쪽 captures but steals nothing
+  const st = rig([C(2, 0)], [C(6, 2)], [C(2, 2)]);
+  st.deck = [C(2, 2)]; st.turnsLeft = [1, 0, 0]; st.caps[1] = [C(10, 2)];
+  await run(st, 0, C(2, 0));
+  eq('last-turn 쪽 keeps others\' pi', st.caps[1].length, 1);
 }
 
 // ---- full games with the AI: nothing breaks, cards are conserved ----
