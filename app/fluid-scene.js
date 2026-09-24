@@ -132,6 +132,8 @@ export class FluidScene extends WaterScene {
         uProjInv: { value: new THREE.Matrix4() }, uProj: { value: new THREE.Matrix4() }, uViewInv: { value: new THREE.Matrix4() },
         uTexel: { value: new THREE.Vector2() }, uNear: { value: 0.1 }, uFar: { value: 80 },
         uLight: { value: new THREE.Vector3() },
+        uView: { value: new THREE.Matrix4() },
+        tHeight: { value: this.hTex }, uWL: { value: WL }, uHalf: { value: new THREE.Vector2(W / 2, D / 2) },
       },
       depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
       vertexShader: FULLSCREEN_VS,
@@ -142,6 +144,10 @@ export class FluidScene extends WaterScene {
         uniform vec2 uTexel;
         uniform float uNear, uFar;
         uniform vec3 uLight;
+        uniform mat4 uView;
+        uniform sampler2D tHeight;
+        uniform float uWL;
+        uniform vec2 uHalf;
         varying vec2 vUv;
         vec3 viewPos(vec2 uv, float z) {
           vec4 v = uProjInv * vec4(uv * 2.0 - 1.0, 0.0, 1.0);
@@ -153,6 +159,27 @@ export class FluidScene extends WaterScene {
           float sd = texture2D(tSceneDepth, vUv).x;
           float sz = perspectiveDepthToViewZ(sd, uNear, uFar);
           float fz = texture2D(tFluid, vUv).r;
+          // the smoothed particle surface never counts outside the tank
+          if (fz != 0.0) {
+            vec3 pw = (uViewInv * vec4(viewPos(vUv, fz), 1.0)).xyz;
+            if (abs(pw.x) > uHalf.x + 0.01 || abs(pw.z) > uHalf.y + 0.01 || pw.y < -0.01) fz = 0.0;
+          }
+          // Water pressed against the front glass: where the view ray crosses the glass below
+          // the waterline, the water is right there, flat against it — this fills the corners
+          // and edges the round particles can't reach.
+          bool glassFace = false;
+          {
+            vec3 ro = (uViewInv * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+            vec3 rd = normalize((uViewInv * vec4(viewPos(vUv, -1.0), 0.0)).xyz);
+            if (rd.z < 0.0 && ro.z > uHalf.y) {
+              vec3 q = ro + rd * ((uHalf.y - ro.z) / rd.z);
+              float top = uWL + texture2D(tHeight, vec2(q.x / (2.0 * uHalf.x) + 0.5, 0.995)).r;
+              if (abs(q.x) < uHalf.x && q.y > 0.0 && q.y < top) {
+                vec3 qv = (uView * vec4(q, 1.0)).xyz;
+                if (fz == 0.0 || qv.z > fz) { fz = qv.z; glassFace = true; }
+              }
+            }
+          }
           if (fz == 0.0 || fz < sz) {
             gl_FragColor = scene;
             gl_FragDepth = sd;
@@ -170,8 +197,9 @@ export class FluidScene extends WaterScene {
             vec3 n = normalize(cross(ddx, ddy));
             vec3 V = normalize(-P);
             if (dot(n, V) < 0.0) n = -n;
+            if (glassFace) n = normalize((uView * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
             vec2 th = texture2D(tThick, vUv).rg;
-            float t = th.r;
+            float t = glassFace ? max(th.r, 1.4) : th.r; // looking in through the glass: a full tank depth of water
             float foam = th.y;
             float F = 0.02 + 0.98 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
             // refraction: the scene behind, bent by the surface and dimmed/tinted by depth of water
@@ -365,6 +393,7 @@ export class FluidScene extends WaterScene {
     u.uProjInv.value.copy(cam.projectionMatrixInverse);
     u.uProj.value.copy(cam.projectionMatrix);
     u.uViewInv.value.copy(cam.matrixWorld);
+    u.uView.value.copy(cam.matrixWorldInverse);
     u.uNear.value = cam.near; u.uFar.value = cam.far;
     u.uLight.value.copy(this.keyLight.position).sub(this.keyLight.target.position).normalize().transformDirection(cam.matrixWorldInverse);
     r.setClearColor(clear, alpha);

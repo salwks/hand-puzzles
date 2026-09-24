@@ -148,8 +148,8 @@ fn g2p(@builtin(global_invocation_id) id: vec3u) {
   p.position += v * P.sim.x;
   let g = vec3f(P.grid.xyz);
   // a stiff wall a cell in from the edge keeps particles off the boundary cells
-  let lo = vec3f(1.0);
-  let hi = g - 2.0;
+  let lo = vec3f(2.3); // cell 2 is the inner face of the glass
+  let hi = g - 2.3;
   let next = p.position + v * P.sim.x * 3.0;
   let wallK = 0.12;
   if (next.x < lo.x + 1.0) { p.v.x += wallK * (lo.x + 1.0 - next.x); }
