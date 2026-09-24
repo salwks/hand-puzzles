@@ -83,7 +83,7 @@ fn p2g2(@builtin(global_invocation_id) id: vec3u) {
     density += dec(atomicLoad(&cells[cellIndex(ci + vec3i(gx - 1, gy - 1, gz - 1))].mass)) * weight;
   }}}
   let volume = 1.0 / max(density, 1e-4);
-  let pressure = max(-0.1, P.sim.z * (pow(density / P.sim.w, 5.0) - 1.0));
+  let pressure = max(0.0, P.sim.z * (pow(density / P.sim.w, 5.0) - 1.0)); // no tension: water doesn't cling like jelly
   var stress = mat3x3f(-pressure, 0.0, 0.0, 0.0, -pressure, 0.0, 0.0, 0.0, -pressure);
   let strain = p.C + transpose(p.C);
   stress += P.misc.x * strain;
@@ -116,7 +116,8 @@ fn updateGrid(@builtin(global_invocation_id) id: vec3u) {
     if (r < P.hand.w && f32(y) + 0.5 > P.hand.y) {
       let outward = select(vec2f(0.0), d / r, r > 1e-3);
       let push = (1.0 - r / P.hand.w) * 1.2;
-      v = vec3f(P.handV.x + outward.x * push, mix(v.y, 0.0, 0.3), P.handV.z + outward.y * push);
+      let goal = vec3f(P.handV.x + outward.x * push, v.y, P.handV.z + outward.y * push);
+      v = mix(v, goal, 0.45 * (1.0 - r / P.hand.w) + 0.15);
     }
   }
   if (x < 2 || x > g.x - 3) { v.x = 0.0; }
@@ -211,6 +212,7 @@ export class FluidGPU {
     this.frameNo = 0;
 
     const module = device.createShaderModule({ code: SHADER });
+    module.getCompilationInfo?.().then((info) => { for (const m of info.messages) if (m.type === 'error') console.error(`WGSL ${m.lineNum}:${m.linePos} ${m.message}`); });
     const layout = device.createBindGroupLayout({
       entries: [
         { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
@@ -239,7 +241,7 @@ export class FluidGPU {
     }));
 
     this.params = {
-      dt: 0.15, gravity: -0.12, stiffness: 8, restDensity: 4, viscosity: 0.12, band: 1.6,
+      dt: 0.15, gravity: -0.2, stiffness: 14, restDensity: 4, viscosity: 0.005, band: 1.6,
       hand: null, // {x, bottom, z, r, vx, vy, vz} in cells
     };
     this.latest = null; // {particles: Float32Array(count*4), heights: Int32Array, flow: Int32Array}

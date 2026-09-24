@@ -20,7 +20,7 @@ export class FluidScene extends WaterScene {
   constructor(canvas, fluid) {
     super(canvas);
     this.fluid = fluid;
-    this.simPerSecond = 16; // sim-time units per real second: sets how heavy/slow the water moves
+    this.simPerSecond = 24; // sim-time units per real second: sets how heavy/slow the water moves
     this.flowCells = { vx: new Float32Array(GRID[0] * GRID[2]), vz: new Float32Array(GRID[0] * GRID[2]) };
     // glass goes on its own layer so it can be drawn after the water
     this.scene.traverse((o) => { if (o.isMesh && o.material?.opacity === 0.1) o.layers.set(1); });
@@ -231,7 +231,7 @@ export class FluidScene extends WaterScene {
     if (!this.fluid) return; // the base constructor starts the loop before we're set up
     const h = this.dip, f = this.fluid;
     this.uniforms.uTime.value += dt;
-    const substeps = 2;
+    const substeps = 3;
     const simDt = (this.simPerSecond * Math.min(dt, 1 / 30)) / substeps;
     f.params.dt = Math.min(0.2, simDt);
     if (h.active) {
