@@ -9,6 +9,7 @@ import { GoStopScene, cardSrc, SLOT_COUNT } from './gs-scene.js';
 import { createShell } from './shell.js';
 import { sfx, unlockSound, isMuted, setMuted } from './sound.js';
 import { COLOR } from './stage.js';
+import { createFx } from './fx.js';
 
 const $ = (sel) => document.querySelector(sel);
 const NAMES = ['나', '강 사장', '도 박사'];
@@ -26,6 +27,7 @@ try { guideOn = localStorage.getItem(GUIDE_KEY) !== 'off'; } catch { /* default 
 const scene = new GoStopScene($('#stage'));
 const shell = createShell({ scene, gameId: 'gostop' });
 const { log, toast, onStage } = shell;
+const { bigSay, specialFx, victoryFx } = createFx(scene);
 
 const state = {
   money: [START_MONEY, START_MONEY, START_MONEY], dealer: 0, round: 1, nagari: 0, started: false,
@@ -670,62 +672,6 @@ const SPECIAL_NOTE = {
 function say(p, text) {
   state.say[p] = { text, at: performance.now() };
   renderSeats();
-}
-
-// Confetti and fireworks: canvas-confetti, loaded on first use, drawn on its own layer.
-let confettiFn = null;
-import('https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm')
-  .then((m) => { confettiFn = m.default.create($('#fx-canvas'), { resize: true, useWorker: true }); })
-  .catch(() => {});
-const GOLD = ['#f2d08a', '#d6a23e', '#fff4d6', '#c9454b', '#ffffff'];
-
-function flash(strong = false) {
-  const el = $('#flash');
-  el.classList.remove('on', 'strong');
-  void el.offsetWidth;
-  el.classList.add('on');
-  el.classList.toggle('strong', strong);
-}
-
-/** A 쪽, 따닥 or 싹쓸이: a short flare of light and a puff of gold. */
-function specialFx() {
-  scene.flare(0.6, 0.9);
-  flash(false);
-  confettiFn?.({ particleCount: 60, spread: 70, startVelocity: 32, origin: { x: 0.5, y: 0.45 }, colors: GOLD, scalar: 0.8, ticks: 120 });
-}
-
-/** Winning: white flash, the light blooms, fireworks from both sides, the title bursts in. */
-function victoryFx() {
-  scene.flare(1, 3.2);
-  scene.shake = 0.14;
-  flash(true);
-  bigSay('승리!', 'victory');
-  if (!confettiFn) return;
-  const end = performance.now() + 2600;
-  const shoot = () => {
-    confettiFn({ particleCount: 7, angle: 60, spread: 60, startVelocity: 62, origin: { x: 0, y: 0.75 }, colors: GOLD });
-    confettiFn({ particleCount: 7, angle: 120, spread: 60, startVelocity: 62, origin: { x: 1, y: 0.75 }, colors: GOLD });
-    if (performance.now() < end) requestAnimationFrame(shoot);
-  };
-  shoot();
-  for (let i = 0; i < 6; i++) {
-    setTimeout(() => confettiFn({
-      particleCount: 90, spread: 360, startVelocity: 26, gravity: 0.7, decay: 0.92, ticks: 160, scalar: 0.9,
-      origin: { x: 0.2 + Math.random() * 0.6, y: 0.2 + Math.random() * 0.3 }, colors: GOLD, shapes: ['circle', 'star'],
-    }), 250 + i * 380);
-  }
-}
-
-let bigTimer;
-function bigSay(text, kind = '') {
-  const el = $('#big-say');
-  el.textContent = text;
-  el.hidden = false;
-  el.className = '';
-  void el.offsetWidth;
-  el.className = kind ? `pop ${kind}` : 'pop';
-  clearTimeout(bigTimer);
-  bigTimer = setTimeout(() => { el.hidden = true; }, kind === 'victory' ? 2200 : 1300);
 }
 
 function bannerText() {

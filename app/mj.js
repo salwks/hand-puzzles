@@ -9,6 +9,7 @@ import { MahjongScene, tileSrc, TW, TH } from './mj-scene.js';
 import { createShell } from './shell.js';
 import { sfx, clatter, unlockSound, isMuted, setMuted } from './sound.js';
 import { COLOR } from './stage.js';
+import { createFx } from './fx.js';
 
 const $ = (sel) => document.querySelector(sel);
 const NAMES = ['나', '남 사장', '서 선생', '북 여사'];
@@ -28,6 +29,7 @@ try { guideOn = localStorage.getItem(GUIDE_KEY) !== 'off'; } catch { /* default 
 const scene = new MahjongScene($('#stage'));
 const shell = createShell({ scene, gameId: 'mahjong' });
 const { log, toast, onStage } = shell;
+const { bigSay, specialFx, victoryFx } = createFx(scene);
 
 const state = {
   scores: [25000, 25000, 25000, 25000], dealer: 0, roundNo: 1, sticks: 0, started: false,
@@ -255,6 +257,7 @@ function discard(s, id, { riichi = false } = {}) {
     state.scores[s] -= 1000;
     state.sticks++;
     say(s, '리치');
+    if (s === 0) { bigSay('리치!'); specialFx(); }
   }
   state.drawn = null;
   state.phase = 'after-discard';
@@ -429,6 +432,8 @@ async function win(s, { tsumo = false, from = null, tile, result }) {
   say(s, tsumo ? '쯔모' : '론');
   layoutHand(s);
   setTimeout(() => scene.celebrate(state.hands[s], { strong: s === 0 || result.yakuman }), 350);
+  if (s === 0) setTimeout(() => victoryFx(tsumo ? '쯔모!' : '론!'), 350);
+  else bigSay(`${NAMES[s]} ${tsumo ? '쯔모' : '론'}`);
   const p = result.points;
   const delta = [0, 0, 0, 0];
   if (tsumo) {
@@ -1001,4 +1006,4 @@ soundBtn.addEventListener('click', () => { unlockSound(); setMuted(!isMuted()); 
 showSound();
 
 // Debug / test handle
-window.__mj = { state, scene, discard, playTurn, hand: shell.injectHandFrame, evaluate, winCtx };
+window.__mj = { state, scene, discard, playTurn, hand: shell.injectHandFrame, evaluate, winCtx, victoryFx, specialFx };

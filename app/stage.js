@@ -3,6 +3,10 @@
 // its own board and pieces, and implements the small hooks at the bottom of the class.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { leatherMaterial } from './materials.js';
 import { RiggedHand } from './rigged-hand.js';
 import { HAND_CONNECTIONS } from './hand.js';
@@ -212,6 +216,10 @@ export class Stage {
     this.shiftTarget = 0;
     this.raycaster = new THREE.Raycaster();
     this.clock = new THREE.Clock();
+    this.fx = 0; // bloom level, see flare()
+    this.fxFade = 1.2;
+    this.bloomThreshold = 1.25; // above the brightest lamp-lit surface; glossy scenes raise it
+    this.shake = 0; // camera shake amplitude, decays by itself
   }
 
   /** Call once the subclass has built its scene. */
@@ -242,6 +250,7 @@ export class Stage {
     this.camera.aspect = w / h;
     this.frameCamera(w / h);
     this.applyShift();
+    this.composer?.setSize(w, h);
   }
 
   /** Slide the whole view sideways; picking keeps working because rays use the same projection. */
@@ -327,6 +336,8 @@ export class Stage {
     }
 
     this.update(dt, wave);
+    if (this.fx > 0) this.fx = Math.max(0, this.fx - dt / this.fxFade);
+    this.shake *= Math.exp(-14 * dt);
 
     if (this.handFrame) {
       const anchor = this.handAnchor();
@@ -336,13 +347,45 @@ export class Stage {
     const glow = this.handGlow();
     for (const material of this.hand.materials) applyGlow(material, glow, wave);
 
+    // a slam or a win shakes the view for a moment
+    const cam = this.camera.position, s = this.shake;
+    const ox = s > 1e-3 ? (Math.random() - 0.5) * s : 0, oy = s > 1e-3 ? (Math.random() - 0.5) * s : 0;
+    cam.x += ox; cam.y += oy;
     this.draw();
+    cam.x -= ox; cam.y -= oy;
+  }
+
+  // ---------- bloom ----------
+  // Post-processing costs GPU time that hand tracking shares, so bloom only runs while a
+  // moment calls for it (a win, a special play) and the plain renderer draws the rest.
+  // The threshold sits above anything the lamp lights, so only emissive glows and the gold
+  // dust bloom, never the white faces of the pieces.
+
+  /** Flare the bloom up to `amount` (0..1); it fades over about `fade` seconds. */
+  flare(amount, fade = 1.2) {
+    if (!this.composer) {
+      const w = window.innerWidth, h = window.innerHeight;
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(w, h);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), 0, 0.45, this.bloomThreshold);
+      this.composer.addPass(this.bloom);
+      this.composer.addPass(new OutputPass());
+    }
+    if (amount < this.fx) return; // a smaller flare never cuts a bigger one short
+    this.fx = amount;
+    this.fxFade = fade;
+  }
+
+  draw() {
+    if (this.composer && this.fx > 0.02) {
+      this.bloom.strength = 1.3 * this.fx;
+      this.composer.render();
+    } else this.renderer.render(this.scene, this.camera);
   }
 
   // ---------- hooks for the game scene ----------
-
-  /** Draw the frame (a scene may route it through post-processing). */
-  draw() { this.renderer.render(this.scene, this.camera); }
 
   /** Place the camera for the given aspect ratio. */
   frameCamera(_aspect) {}

@@ -113,6 +113,7 @@ export class MahjongScene extends Stage {
     this.buildTable();
     this.setLampScale(5.2);
     this.softenLight();
+    this.bloomThreshold = 2.6; // glazed ivory throws highlights well above 1
     this.start();
   }
 
@@ -306,7 +307,7 @@ export class MahjongScene extends Stage {
     ids.forEach((id, i) => {
       const o = this.tiles.get(id);
       if (!o) return;
-      o.glow = { color: 0xe0b45a, intensity: 0.8, pulse: true };
+      o.glow = { color: 0xe0b45a, intensity: 2.2, pulse: true };
       const base = o.root.position.clone();
       this.tween({
         dur: 0.7, delay: 0.25 + i * 0.07,
@@ -329,7 +330,7 @@ export class MahjongScene extends Stage {
       vel.push([(Math.random() - 0.5) * 0.9, 1.2 + Math.random() * 2.4, (Math.random() - 0.5) * 0.9]);
     }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: 0xf2cf7a, size: 0.07, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mat = new THREE.PointsMaterial({ color: new THREE.Color(0xffd98a).multiplyScalar(5), size: 0.07, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending });
     const pts = new THREE.Points(geo, mat);
     this.scene.add(pts);
     this.bursts ??= [];
