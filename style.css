@@ -428,3 +428,16 @@ body.mj #cam { top: auto; bottom: clamp(14px, 3.5vh, 32px); }
 #end-scores { flex-direction: column; gap: 8px; } #end-scores div { flex-direction: row; justify-content: space-between; width: 100%; } #end-scores div + div { border-left: 0; }
 #modal-end .stack a.btn { text-decoration: none; height: 64px; }
 @media (max-width: 1000px) { #hint { display: none; } }
+
+.hint-head { display: flex; justify-content: space-between; align-items: center; }
+body.mj #hint { width: 300px; max-height: calc(100vh - 200px); overflow-y: auto; }
+body.guide #hint-body { display: none; } body:not(.guide) #guide-body { display: none; }
+#guide-body h3 { margin: 10px 0 4px; font-family: var(--serif); font-size: 16px; font-weight: 600; color: var(--gold); }
+#guide-body h3:first-child { margin-top: 0; }
+#guide-body p { font-size: 13px; line-height: 1.75; color: var(--ivory); margin: 0 0 6px; }
+#guide-body b { color: var(--gold); font-weight: 500; }
+#guide-body .muted { color: var(--muted); font-size: 12px; }
+.call-opt.rec, #b-pass.rec { box-shadow: 0 0 0 2px var(--emerald); }
+.call-opt.rec::after { content: '추천'; font: 500 11px var(--sans); letter-spacing: 0.1em; color: var(--emerald-tint); }
+.guide-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.6; color: var(--muted); cursor: pointer; }
+.guide-check b { color: var(--ivory); } .guide-check input { margin-top: 5px; accent-color: var(--gold); }

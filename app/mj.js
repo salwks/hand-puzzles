@@ -3,7 +3,7 @@
 // towards you to call it. One east-round game (동풍전).
 import {
   makeWall, typeOf, counts, shanten, waits, evaluate, chiOptions, ponOK, kanOK, bestDiscard,
-  tileName, EAST, HAKU,
+  tileName, EAST, HAKU, isHonor, isTerminal,
 } from './mj-logic.js';
 import { MahjongScene, drawFace, TW, TH } from './mj-scene.js';
 import { createShell } from './shell.js';
@@ -18,6 +18,9 @@ const TWIST_STEP = (30 * Math.PI) / 180;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const byType = (a, b) => typeOf(a) - typeOf(b) || a - b;
+const GUIDE_KEY = 'mahjong-guide';
+let guideOn = true;
+try { guideOn = localStorage.getItem(GUIDE_KEY) !== 'off'; } catch { /* default on */ }
 
 const scene = new MahjongScene($('#stage'));
 const shell = createShell({ scene, gameId: 'mahjong' });
@@ -504,10 +507,10 @@ function updateHover(x, y) {
     const prev = state.hover;
     state.hover = h;
     if (state.phase === 'discard') {
-      if (prev !== null) scene.setGlow(prev, null);
-      if (h !== null) scene.setGlow(h, { color: COLOR.hover, intensity: 0.45, pulse: false });
+      applyHandGlows();
       layoutHand(0);
     }
+    void prev;
   }
 }
 
@@ -608,6 +611,126 @@ function toggleRiichi() {
   render();
 }
 
+
+// ---------- beginner's guide ----------
+
+const HEAD = (t) => `<h3>${t}</h3>`;
+const P = (t) => `<p>${t}</p>`;
+const threats = (s) => [0, 1, 2, 3].filter((o) => o !== s && state.riichi[o]);
+const isSafeFor = (s, t) => threats(s).every((o) => state.rivers[o].some((d) => typeOf(d.id) === t));
+
+/** What the guide recommends discarding now, and why. */
+function recommendDiscard() {
+  const c = counts(handTypes(0)), m = state.melds[0].length, u = unseen(0);
+  if (state.riichi[0]) return { t: typeOf(state.drawn), why: '리치 중에는 가져온 패를 그대로 버립니다.' };
+  const th = threats(0);
+  const sh0 = shanten(c, m);
+  const danger = th.length ? (t) => (isSafeFor(0, t) ? 0 : sh0 >= 2 ? 100 : 3) : null;
+  const best = bestDiscard(c, m, u, danger);
+  const t = best.t;
+  c[t]--;
+  const after = shanten(c, m), w = after === 0 ? waits(c, m) : [];
+  c[t]++;
+  let why;
+  if (th.length && sh0 >= 2 && isSafeFor(0, t)) why = `<b>${th.map((o) => NAMES[o]).join(', ')}</b>의 리치가 무섭습니다. 완성이 멀 때는 그 사람 하천에 이미 있는 패(<b>현물</b>)를 버리면 론 당하지 않습니다.`;
+  else if (after === 0) why = `버리면 <b>텐파이</b> — 한 장만 더 오면 완성입니다. 대기: ${w.map(faceImg).join('')} (${w.reduce((a, x) => a + u[x], 0)}장 남음)`;
+  else if (isHonor(t) && c[t] === 1) why = '짝이 없는 <b>자패</b>입니다. 같은 패가 더 오지 않으면 몸통이 될 수 없어요.';
+  else if (isTerminal(t) && c[t] === 1) why = '<b>1·9</b>는 이어 붙을 숫자가 한쪽뿐이라 몸통이 되기 어렵습니다.';
+  else if (t < 27 && c[t] === 1 && ![-2, -1, 1, 2].some((d) => { const x = t + d; return x >= 0 && x < 27 && Math.floor(x / 9) === Math.floor(t / 9) && c[x]; })) why = '가까운 숫자가 없는 <b>외톨이</b> 패입니다.';
+  else why = `남은 패로 가장 빨리 완성할 수 있는 선택입니다 (유효패 ${best.u}장).`;
+  return { t, why, after, waits: w };
+}
+
+/** Whether calling this discard is a good idea for a beginner, and why. */
+function recommendCall(opts, t) {
+  if (opts.ron) return { kind: 'ron', why: '이 패로 손이 완성됩니다. <b>론</b>을 고르세요!' };
+  const valuable = t >= HAKU || t === seatWind(0) || t === EAST;
+  if (opts.pon && valuable) return { kind: 'pon', why: `<b>${tileName(t)}</b> 세 장은 그 자체로 역(역패 1판)입니다. <b>퐁</b> 추천.` };
+  if (!isClosed(0) && (opts.pon || opts.chi?.length)) return { kind: opts.pon ? 'pon' : 'chi', why: '이미 울었으니 몸통을 빨리 만드는 편이 낫습니다.' };
+  return { kind: null, why: '울면 손이 공개되어 <b>리치</b>를 할 수 없고, 역이 없으면 이길 수도 없습니다. 처음에는 <b>패스</b>하고 멘젠(울지 않은 손)을 지키세요.' };
+}
+
+function renderGuide() {
+  const box = $('#guide-body');
+  // Only recompute when the situation changes (render also runs on every pointer move).
+  const key = [state.phase, state.turn, state.hands[0].join(','), state.riichi.join(), state.callWin?.id, Boolean(state.options?.tsumo), shell.handActive()].join('|');
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  let html = '';
+  const ph = state.phase;
+  const c = counts(handTypes(0)), m = state.melds[0].length;
+  if (ph === 'deal') {
+    html = HEAD('목표') + P('14장으로 <b>몸통 4개 + 머리 1개</b>를 먼저 만들면 이깁니다.')
+      + P('몸통 = 같은 패 3장(예: 東東東) 또는 이어진 숫자 3장(예: 3·4·5만). 머리 = 같은 패 2장.')
+      + P('매 차례 산에서 <b>1장 가져오고 1장 버립니다</b>.');
+  } else if (ph === 'draw') {
+    html = HEAD('가져오기') + P('당신 차례입니다. 산에서 <b>빛나는 패</b>를 집어 내 앞으로 가져오세요.') + P(`지금 손: 완성까지 <b>${Math.max(0, shanten(c, m))}장</b> 더 필요 (샹텐).`);
+  } else if (ph === 'discard') {
+    if (state.options?.tsumo) {
+      const y = state.options.tsumo.yaku.map((x) => x.name).join(' · ');
+      html = HEAD('쯔모!') + P(`가져온 패로 손이 완성됐습니다 (<b>${y}</b>). <b>쯔모</b> 버튼을 누르세요.`);
+    } else {
+      const rec = state.guideRec = recommendDiscard();
+      html = HEAD('버리기') + P(`추천: ${faceImg(rec.t)} <span class="muted">(테이블에서 초록빛)</span>`) + P(rec.why);
+      if (state.options?.riichi) html += HEAD('리치할 수 있어요') + P('텐파이이고 울지 않았습니다. 버릴 때 <b>리치</b>하면 역 1판이 생기고 점수가 커집니다. 대신 1000점을 걸고, 이후엔 가져온 패만 버려야 합니다.') + P(shell.handActive() ? '패를 든 채 <b>손목을 비틀어</b> 가로로 눕히고 하천에 놓으세요.' : '<b>리치</b> 버튼(또는 R 키)을 누른 뒤 추천 패를 하천에 놓으세요.');
+      if (rec.after === 0 && !isClosed(0)) {
+        c[rec.t]--;
+        const noYaku = waits(c, m).every((x) => !evaluate({ ...winCtx(0, x, false, { ronTile: x }), closed: [...handTypes(0).filter((_, i, arr) => i !== arr.indexOf(rec.t)), x] }));
+        c[rec.t]++;
+        if (noYaku) html += P('⚠ 이 손은 울어서 <b>역이 없습니다</b>. 완성돼도 이길 수 없으니 역(역패, 탕야오 등)을 만들어야 해요.');
+      }
+    }
+  } else if (ph === 'call' && state.callWin) {
+    const t = typeOf(state.callWin.id);
+    const rec = state.guideCall = recommendCall(state.callWin.opts, t);
+    const kinds = callChoices(state.callWin.opts).map((x) => ({ ron: '론', pon: '퐁', kan: '깡', chi: '치' }[x.kind]));
+    html = HEAD('가져올 수 있어요') + P(`${NAMES[state.callWin.from]}가 버린 ${faceImg(t)}로 <b>${[...new Set(kinds)].join(' · ')}</b>가 가능합니다.`)
+      + P('<b>퐁</b> = 같은 패 2장 + 이 패. <b>치</b> = 왼쪽 사람 패로 이어진 숫자 3장. <b>론</b> = 이 패로 완성.')
+      + P(`추천: <b>${rec.kind ? { ron: '론', pon: '퐁', chi: '치', kan: '깡' }[rec.kind] : '패스'}</b> — ${rec.why}`);
+  } else if (ph === 'ai' || ph === 'after-discard') {
+    const th = threats(0);
+    html = state.turn === 0 ? HEAD('버렸습니다') + P('다른 사람이 이 패로 울거나 론할 수 있는지 잠시 기다립니다.')
+      : HEAD(`${NAMES[state.turn]} 차례`) + P('상대가 버리는 패를 지켜보세요. 상대에게 필요 없는 패를 알 수 있습니다.');
+    if (th.length) html += P(`<b>${th.map((o) => NAMES[o]).join(', ')}</b> 리치 중 — 그 사람 하천의 패는 안전한 패(현물)입니다.`);
+    const w = shanten(c, m) === 0 ? waits(c, m) : [];
+    if (w.length) html += P(`당신은 텐파이입니다. 대기: ${w.map(faceImg).join('')}`);
+  } else if (ph === 'over-hand') {
+    html = HEAD('한 국이 끝났습니다') + P('결과 창에서 누가 어떤 역으로 이겼는지 보세요. <b>판</b>이 많을수록 점수가 큽니다.');
+  }
+  if (html === box.dataset.html) return;
+  box.dataset.html = html;
+  box.innerHTML = html;
+  document.querySelectorAll('.call-opt').forEach((b, i) => {
+    const kind = state.callWin ? callChoices(state.callWin.opts)[i]?.kind : null;
+    b.classList.toggle('rec', Boolean(guideOn && state.guideCall && kind === state.guideCall.kind));
+  });
+  $('#b-pass').classList.toggle('rec', Boolean(guideOn && state.guideCall && !state.guideCall.kind));
+}
+
+/** Hovered tile glows gold; in guide mode the recommended discard glows green. */
+function applyHandGlows() {
+  const rec = guideOn && state.phase === 'discard' && !state.options?.tsumo ? state.guideRec : null;
+  let recMarked = false;
+  for (const id of state.hands[0]) {
+    let g = null;
+    if (id === state.hover) g = { color: COLOR.hover, intensity: 0.45, pulse: false };
+    else if (rec && !recMarked && typeOf(id) === rec.t && (!state.riichi[0] || id === state.drawn)) { g = { color: COLOR.hint, intensity: 0.55, pulse: true }; recMarked = true; }
+    scene.setGlow(id, g);
+  }
+}
+
+function setGuide(on) {
+  guideOn = on;
+  try { localStorage.setItem(GUIDE_KEY, on ? 'on' : 'off'); } catch { /* ignore */ }
+  document.body.classList.toggle('guide', on);
+  $('#guide-toggle').textContent = on ? '가이드 끄기' : '가이드 켜기';
+  $('#guide-start').checked = on;
+  $('#guide-body').dataset.html = '';
+  $('#guide-body').dataset.key = '';
+  $('#hint-body').dataset.key = '';
+  render();
+}
+
 // ---------- UI ----------
 
 function render(full = true) {
@@ -634,7 +757,8 @@ function render(full = true) {
     }).join('');
   }
   updateBanner();
-  renderHint();
+  if (guideOn) renderGuide(); else renderHint();
+  applyHandGlows();
   renderSeats();
 }
 
@@ -726,6 +850,9 @@ $('#call-opts').addEventListener('click', (e) => {
   if (b && state.callWin) state.wait?.resolve(callChoices(state.callWin.opts)[Number(b.dataset.i)]);
 });
 $('#res-next').addEventListener('click', nextHand);
+$('#guide-toggle').addEventListener('click', () => setGuide(!guideOn));
+$('#guide-start').addEventListener('change', (e) => setGuide(e.target.checked));
+setGuide(guideOn);
 $('#end-again').addEventListener('click', newGame);
 addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'r' && state.phase === 'discard') toggleRiichi(); });
 $('#stage').addEventListener('contextmenu', (e) => { e.preventDefault(); if (state.drag?.kind === 'discard') toggleRiichi(); });

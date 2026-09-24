@@ -60,8 +60,9 @@
     <div class="mj-seat" id="seat-3"><div class="say"></div><span class="wind"></span><span class="nm">북 여사</span><span class="pts"></span><span class="st"></span></div>
   </div>
 
-  <aside id="hint" aria-label="추천">
-    <div class="overline">HINT</div>
+  <aside id="hint" aria-label="가이드">
+    <div class="hint-head"><div class="overline" id="hint-title">GUIDE</div><button id="guide-toggle" class="btn small">가이드 끄기</button></div>
+    <div id="guide-body"></div>
     <div id="hint-body"></div>
     <p class="fine">버릴 패를 집은 채 손목을 비틀면(마우스: 우클릭, R 키) 가로로 눕혀 <b>리치</b>.</p>
   </aside>
@@ -157,6 +158,7 @@
         <li><b>02</b><div><strong>버릴 패를 집어 가운데 하천에 놓기</strong><span>텐파이라면 손목을 비틀어 눕혀 놓으면 리치입니다.</span></div></li>
         <li><b>03</b><div><strong>남의 버림패를 내 쪽으로 끌어오기</strong><span>퐁·치·깡·론이 가능할 때 그 패가 빛납니다.</span></div></li>
       </ol>
+      <label class="guide-check"><input type="checkbox" id="guide-start" checked> <span><b>초보자 가이드</b> — 처음부터 끝까지 무엇을 왜 하는지 알려주고 추천 패를 표시합니다</span></label>
       <div class="row">
         <button id="btn-start-cam" class="btn primary"><svg class="icon"><use href="#i-camera"/></svg><span>카메라로 시작</span></button>
         <button id="btn-start-mouse" class="btn"><svg class="icon"><use href="#i-mouse"/></svg><span>마우스로 시작</span></button>

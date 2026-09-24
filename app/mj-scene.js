@@ -284,6 +284,11 @@ export class MahjongScene extends Stage {
       if (face === false) o.showFace(false);
       return;
     }
+    // Already there (and not on its way elsewhere): leave it still, so re-laying a hand only moves what changed.
+    if (!o.moving && o.root.position.distanceTo(target.p) < 1e-3 && o.root.quaternion.angleTo(target.q) < 1e-3) {
+      if (face === false) o.showFace(false);
+      return;
+    }
     const p0 = o.root.position.clone(), q0 = o.root.quaternion.clone();
     o.moving = true;
     this.tween({
