@@ -292,8 +292,8 @@ export class GoStopScene extends Stage {
 
   /**
    * Slam a card down onto a pose: a quick rise over the spot, then straight down hard.
-   * `strength` 0..1 (how fast the hand came down) scales the drop, the shake and the bounce
-   * of the cards it lands on. `onHit` fires at impact (for the sound).
+   * `strength` 0..1 (how fast the hand came down) scales the drop and the jolt of the cards
+   * it lands on. `onHit` fires at impact (for the sound).
    */
   slam(id, target, strength, onHit) {
     const o = this.cards.get(id);
@@ -310,7 +310,7 @@ export class GoStopScene extends Stage {
           update: (k) => { o.root.position.lerpVectors(p0, target.p, easeInQuad(k)); },
           done: () => {
             o.moving = false;
-            this.impact(target.p, strength);
+            this.impact(target.p, strength, o);
             onHit?.();
           },
         });
@@ -318,14 +318,13 @@ export class GoStopScene extends Stage {
     });
   }
 
-  impact(at, strength) {
-    this.shake = Math.max(this.shake, 0.02 + 0.06 * strength);
-    // cards near the impact hop a little
+  impact(at, strength, landed) {
+    // only the cards it lands on (a match under it) jolt; the rest of the table stays still
     for (const o of this.cards.values()) {
-      if (o.moving || o === this.carried) continue;
+      if (o.moving || o === this.carried || o === landed) continue;
       const d = Math.hypot(o.root.position.x - at.x, o.root.position.z - at.z);
-      if (d > 1.3 || o.root.position.y > 0.3) continue;
-      const y0 = o.root.position.y, h = (1.3 - d) * 0.05 * (0.4 + strength);
+      if (d > 0.3 || o.root.position.y > 0.3) continue;
+      const y0 = o.root.position.y, h = 0.02 * (0.4 + strength);
       this.tween({ dur: 0.18, update: (k) => { o.root.position.y = y0 + Math.sin(Math.PI * k) * h; }, done: () => { o.root.position.y = y0; } });
     }
     if (strength > 0.35) this.puff(at, strength);
