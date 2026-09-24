@@ -7,6 +7,7 @@ import {
 } from './mj-logic.js';
 import { MahjongScene, tileSrc, TW, TH } from './mj-scene.js';
 import { createShell } from './shell.js';
+import { sfx, clatter, unlockSound, isMuted, setMuted } from './sound.js';
 import { COLOR } from './stage.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -16,6 +17,8 @@ const DEAD = 14;
 const CALL_MS = 5000; // how long the player has to call someone else's discard
 const TWIST_STEP = (30 * Math.PI) / 180;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const PAN = [0, 0.55, 0, -0.55]; // me, right, across, left
+const near = (s) => (s === 0 ? 1 : s === 2 ? 0.45 : 0.6); // across the table is further away
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const byType = (a, b) => typeOf(a) - typeOf(b) || a - b;
 const GUIDE_KEY = 'mahjong-guide';
@@ -121,6 +124,7 @@ async function newRound() {
   state.riichiIntent = false;
   state.revealed = null;
   scene.reset(state.wall);
+  clatter(1.3, 30); // washing the tiles
   state.wall.forEach((id, i) => scene.place(id, scene.wallPose(i), { instant: true, face: false }));
   // the dora indicator is turned face-up in the dead wall
   const indPos = state.wall.length - 6;
@@ -129,12 +133,14 @@ async function newRound() {
   state.phase = 'deal';
   render();
   await sleep(400);
+  sfx('lay', { vol: 0.8, delay: 0 });
   for (let r = 0; r < 4; r++) {
     for (let k = 0; k < 4; k++) {
       const s = (state.dealer + k) % 4;
       const n = r < 3 ? 4 : 1;
       for (let j = 0; j < n; j++) state.hands[s].push(state.wall[state.live++]);
       layoutHand(s);
+      sfx('stack', { vol: 0.35 * near(s), pan: PAN[s], delay: 0.2 });
       await sleep(90);
     }
   }
@@ -170,6 +176,7 @@ async function drawTile(s, rinshan) {
     // The tile slides out of the wall so the standing hand can't hide it.
     const pop = scene.popPose(state.live);
     scene.place(id, pop, { dur: 0.35, arc: 0.1 });
+    sfx('lift', { vol: 0.3, delay: 0.05 });
     scene.showDrawSpot(pop.p);
     scene.setGlow(id, { color: COLOR.hover, intensity: 1, pulse: true });
     render();
@@ -180,6 +187,7 @@ async function drawTile(s, rinshan) {
     state.drawTarget = null;
   }
   if (!rinshan) state.live++;
+  sfx('lift', { vol: 0.5 * near(s), pan: PAN[s] });
   state.hands[s].push(id);
   state.drawn = id;
   layoutHand(s);
@@ -254,6 +262,8 @@ function discard(s, id, { riichi = false } = {}) {
   state.riichiIntent = false;
   scene.setCarrySideways(false);
   log.event('discard', { seat: s, tile: typeOf(id), riichi });
+  sfx('clack', { vol: near(s), pan: PAN[s], delay: 0.3, rate: riichi ? 0.92 : 1 });
+  if (riichi) { sfx('knock', { vol: 0.7 * near(s), pan: PAN[s] }); sfx('lay', { vol: 0.9, delay: 0.55 }); sfx('bell', { vol: 0.25, delay: 0.55 }); }
   layoutHand(s);
   layoutRiver(s);
   render();
@@ -355,6 +365,8 @@ function call(s, from, id, choice) {
   state.ippatsu = [false, false, false, false];
   say(s, { chi: '치', pon: '퐁', kan: '깡' }[kind]);
   log.event('call', { seat: s, kind, tile: t });
+  sfx('knock', { vol: 0.9 * near(s), pan: PAN[s] });
+  clatter(0.35, 4, { pan: PAN[s], delay: 0.25, vol: 0.8 * near(s) });
   layoutRiver(from);
   layoutMelds(s);
   layoutHand(s);
@@ -430,6 +442,14 @@ async function win(s, { tsumo = false, from = null, tile, result }) {
   delta[s] += state.sticks * 1000;
   state.sticks = 0;
   for (let o = 0; o < 4; o++) state.scores[o] += delta[o];
+  // declaration, the hand toppled face-up, then how it turned out for me
+  sfx('hit', { vol: 0.8, jitter: 0 });
+  clatter(0.45, 14, { pan: PAN[s], delay: 0.35, vol: near(s) });
+  if (s === 0) {
+    sfx('win', { delay: 0.9, jitter: 0 });
+    sfx('win2', { delay: 2.5, vol: 0.8, jitter: 0 });
+    clatter(1.2, 16, { delay: 2.4, vol: 0.5 }); // points paid in
+  } else if (delta[0] < 0) sfx('lose', { delay: 0.9, jitter: 0 });
   log.event('win', { seat: s, tsumo, han: result.han, fu: result.fu, total: p.total, yaku: result.yaku.map((y) => y.name) });
   await sleep(900);
   showResult({
@@ -450,6 +470,7 @@ async function exhaustiveDraw() {
   }
   for (let s = 0; s < 4; s++) state.scores[s] += delta[s];
   log.event('draw', { tenpai });
+  sfx('draw', { delay: 0.3, jitter: 0 });
   await sleep(700);
   showResult({ title: '유국', over: 'EXHAUSTIVE DRAW', text: tenpai.length ? `텐파이: ${tenpai.map((s) => NAMES[s]).join(', ')}` : '모두 노텐', delta });
   state.nextDealerKeeps = tenpai.includes(state.dealer);
@@ -494,6 +515,7 @@ function showResult({ title, over, hand = null, melds = [], winTile = null, resu
 }
 
 function nextHand() {
+  sfx('lay', { vol: 0.6 });
   $('#result').hidden = true;
   if (!state.nextDealerKeeps) { state.dealer = (state.dealer + 1) % 4; state.roundNo++; }
   if (state.roundNo > 4 || state.scores.some((x) => x < 0)) return endGame();
@@ -506,12 +528,14 @@ function endGame() {
   $('#end-title').textContent = `${rank.indexOf(0) + 1}위`;
   $('#end-scores').innerHTML = rank.map((s, i) => `<div><dt>${i + 1}위 · ${NAMES[s]}</dt><dd>${fmt(state.scores[s])}</dd></div>`).join('');
   $('#modal-end').hidden = false;
+  if (rank[0] === 0) { sfx('first', { jitter: 0 }); sfx('win', { delay: 0.8, jitter: 0 }); } else sfx('over', { jitter: 0 });
   log.event('gameover', { scores: state.scores });
 }
 
 function newGame() {
   $('#modal-end').hidden = true;
   Object.assign(state, { scores: [25000, 25000, 25000, 25000], dealer: 0, roundNo: 1, sticks: 0, started: true });
+  sfx('start', { jitter: 0 });
   newRound();
 }
 
@@ -640,6 +664,7 @@ function onHandPose(f) {
 function toggleRiichi() {
   if (!state.options?.riichi && !state.riichiIntent) return toast('지금은 리치할 수 없습니다 (멘젠 텐파이가 아님).', 2000);
   state.riichiIntent = !state.riichiIntent;
+  sfx('lay', { vol: 0.6 });
   scene.setCarrySideways(state.riichiIntent);
   render();
 }
@@ -967,7 +992,13 @@ setGuide(guideOn);
 $('#end-again').addEventListener('click', newGame);
 addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'r' && state.phase === 'discard') toggleRiichi(); });
 $('#stage').addEventListener('contextmenu', (e) => { e.preventDefault(); if (state.drag?.kind === 'discard') toggleRiichi(); });
-for (const id of ['#btn-start-mouse', '#btn-start-cam']) $(id).addEventListener('click', () => { if (!state.started) newGame(); }, { once: true });
+for (const id of ['#btn-start-mouse', '#btn-start-cam']) {
+  $(id).addEventListener('click', () => { unlockSound(); if (!state.started) setTimeout(newGame, 250); }, { once: true });
+}
+const soundBtn = $('#b-sound');
+const showSound = () => { soundBtn.textContent = isMuted() ? '소리 꺼짐' : '소리 켜짐'; soundBtn.classList.toggle('off', isMuted()); };
+soundBtn.addEventListener('click', () => { unlockSound(); setMuted(!isMuted()); showSound(); });
+showSound();
 
 // Debug / test handle
 window.__mj = { state, scene, discard, playTurn, hand: shell.injectHandFrame, evaluate, winCtx };

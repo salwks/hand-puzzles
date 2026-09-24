@@ -491,3 +491,6 @@ body.mj #banner { animation: gold-breathe 3.2s ease-in-out infinite; }
 }
 #result .card.mine .mj-row .win .mj-tile { box-shadow: 0 0 0 2px var(--gold-hi), 0 0 22px rgba(242, 207, 122, 0.6); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+
+.sound-toggle { pointer-events: auto; margin-top: 8px; }
+.sound-toggle.off { opacity: 0.55; }
