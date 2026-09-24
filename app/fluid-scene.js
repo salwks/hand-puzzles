@@ -167,17 +167,36 @@ export class FluidScene extends WaterScene {
           // Water pressed against the front glass: where the view ray crosses the glass below
           // the waterline, the water is right there, flat against it — this fills the corners
           // and edges the round particles can't reach.
+          // The same on the other walls, seen from inside the tank: where the ray reaches the
+          // side or back glass below that wall's waterline, water fills right up to the glass.
           bool glassFace = false;
+          vec3 glassN = vec3(0.0);
           {
             vec3 ro = (uViewInv * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
             vec3 rd = normalize((uViewInv * vec4(viewPos(vUv, -1.0), 0.0)).xyz);
+            // front glass, from outside
             if (rd.z < 0.0 && ro.z > uHalf.y) {
               vec3 q = ro + rd * ((uHalf.y - ro.z) / rd.z);
               float top = uWL + texture2D(tHeight, vec2(q.x / (2.0 * uHalf.x) + 0.5, 0.995)).r;
               if (abs(q.x) < uHalf.x && q.y > 0.0 && q.y < top) {
                 vec3 qv = (uView * vec4(q, 1.0)).xyz;
-                if (fz == 0.0 || qv.z > fz) { fz = qv.z; glassFace = true; }
+                if (fz == 0.0 || qv.z > fz) { fz = qv.z; glassFace = true; glassN = vec3(0.0, 0.0, 1.0); }
               }
+            }
+            // left, right and back glass, from inside (only where no nearer water was found)
+            for (int k = 0; k < 3; k++) {
+              vec3 nrm = k == 0 ? vec3(1.0, 0.0, 0.0) : k == 1 ? vec3(-1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
+              float plane = k == 2 ? -uHalf.y : (k == 0 ? -uHalf.x : uHalf.x);
+              float o = k == 2 ? ro.z : ro.x, d = k == 2 ? rd.z : rd.x;
+              if (abs(d) < 1e-4) continue;
+              float t = (plane - o) / d;
+              if (t <= 0.0) continue;
+              vec3 q = ro + rd * t;
+              if (abs(q.x) > uHalf.x + 0.001 || abs(q.z) > uHalf.y + 0.001 || q.y <= 0.0) continue;
+              vec2 huv = k == 2 ? vec2(q.x / (2.0 * uHalf.x) + 0.5, 0.005) : vec2(k == 0 ? 0.005 : 0.995, q.z / (2.0 * uHalf.y) + 0.5);
+              if (q.y > uWL + texture2D(tHeight, huv).r) continue;
+              vec3 qv = (uView * vec4(q, 1.0)).xyz;
+              if (fz == 0.0 || qv.z > fz) { fz = qv.z; glassFace = true; glassN = nrm; }
             }
           }
           if (fz == 0.0 || fz < sz) {
@@ -197,7 +216,7 @@ export class FluidScene extends WaterScene {
             vec3 n = normalize(cross(ddx, ddy));
             vec3 V = normalize(-P);
             if (dot(n, V) < 0.0) n = -n;
-            if (glassFace) n = normalize((uView * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
+            if (glassFace) n = normalize((uView * vec4(glassN, 0.0)).xyz);
             vec2 th = texture2D(tThick, vUv).rg;
             float t = glassFace ? max(th.r, 1.4) : th.r; // looking in through the glass: a full tank depth of water
             float foam = th.y;

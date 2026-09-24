@@ -83,7 +83,7 @@ fn p2g2(@builtin(global_invocation_id) id: vec3u) {
     density += dec(atomicLoad(&cells[cellIndex(ci + vec3i(gx - 1, gy - 1, gz - 1))].mass)) * weight;
   }}}
   let volume = 1.0 / max(density, 1e-4);
-  let pressure = max(0.0, P.sim.z * (pow(density / P.sim.w, 5.0) - 1.0)); // no tension: water doesn't cling like jelly
+  let pressure = max(-0.015, P.sim.z * (pow(density / P.sim.w, 5.0) - 1.0)); // a trace of cohesion: calm water settles, but never clings like jelly
   var stress = mat3x3f(-pressure, 0.0, 0.0, 0.0, -pressure, 0.0, 0.0, 0.0, -pressure);
   let strain = p.C + transpose(p.C);
   stress += P.misc.x * strain;
@@ -143,15 +143,17 @@ fn g2p(@builtin(global_invocation_id) id: vec3u) {
     v += wv;
     B += mat3x3f(wv * dist.x, wv * dist.y, wv * dist.z);
   }}}
-  p.C = B * 4.0;
-  p.v = v;
+  // a touch of damping on the local swirl (C) and on speed: kills the fizz of grid noise at
+  // rest without taking the slosh out of the water
+  p.C = B * 4.0 * 0.96;
+  p.v = v * 0.9985;
   p.position += v * P.sim.x;
   let g = vec3f(P.grid.xyz);
   // a stiff wall a cell in from the edge keeps particles off the boundary cells
   let lo = vec3f(2.3); // cell 2 is the inner face of the glass
   let hi = g - 2.3;
   let next = p.position + v * P.sim.x * 3.0;
-  let wallK = 0.12;
+  let wallK = 0.06;
   if (next.x < lo.x + 1.0) { p.v.x += wallK * (lo.x + 1.0 - next.x); }
   if (next.x > hi.x - 1.0) { p.v.x += wallK * (hi.x - 1.0 - next.x); }
   if (next.y < lo.y + 1.0) { p.v.y += wallK * (lo.y + 1.0 - next.y); }
@@ -241,7 +243,7 @@ export class FluidGPU {
     }));
 
     this.params = {
-      dt: 0.15, gravity: -0.2, stiffness: 14, restDensity: 4, viscosity: 0.005, band: 1.6,
+      dt: 0.15, gravity: -0.2, stiffness: 14, restDensity: 4, viscosity: 0.03, band: 1.6,
       hand: null, // {x, bottom, z, r, vx, vy, vz} in cells
     };
     this.latest = null; // {particles: Float32Array(count*4), heights: Int32Array, flow: Int32Array}
