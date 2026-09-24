@@ -5,6 +5,10 @@ import * as THREE from 'three';
 import { woodMaps, lacqueredWood, feltMaterial, woodUV } from './materials.js';
 import { Stage, COLOR, NO_GLOW, applyGlow, damp, easeInOutCubic, easeInQuad } from './stage.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CARDS } from './gs-logic.js';
 
 export const CW = 0.7, CH = 1.14, CT = 0.026; // card width, height (depth on the table), thickness
@@ -357,7 +361,7 @@ export class GoStopScene extends Stage {
     ids.forEach((id, i) => {
       const o = this.cards.get(id);
       if (!o) return;
-      o.glow = { color: 0xe0b45a, intensity: 0.7, pulse: true };
+      o.glow = { color: 0xe0b45a, intensity: 1.1, pulse: true };
       const base = o.root.position.clone();
       this.tween({
         dur: 0.6, delay: 0.2 + i * 0.04,
@@ -375,7 +379,7 @@ export class GoStopScene extends Stage {
       vel.push([(Math.random() - 0.5) * 0.9, 1.2 + Math.random() * 2.4, (Math.random() - 0.5) * 0.9]);
     }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xf2cf7a, size: 0.07, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: new THREE.Color(0xffd98a).multiplyScalar(2.5), size: 0.08, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     this.scene.add(pts);
     this.bursts.push({ pts, vel, t: 0, life: 2.8, drag: 0, gravity: 1.4, twinkle: true });
   }
@@ -386,6 +390,38 @@ export class GoStopScene extends Stage {
   }
 
   clearGlows() { for (const o of this.cards.values()) o.glow = NO_GLOW; }
+
+  // ---------- bloom ----------
+  // Post-processing costs GPU time that hand tracking shares, so bloom only runs while a
+  // moment calls for it (a win, a 쪽 or 싹쓸이) and the plain renderer draws the rest.
+
+  /** Flare the bloom up to `amount` (0..1); it fades over about `fade` seconds. */
+  flare(amount, fade = 1.2) {
+    if (!this.composer) {
+      const w = window.innerWidth, h = window.innerHeight;
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(w, h);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), 0, 0.45, 1.25);
+      this.composer.addPass(this.bloom);
+      this.composer.addPass(new OutputPass());
+    }
+    this.fx = Math.max(this.fx ?? 0, amount);
+    this.fxFade = fade;
+  }
+
+  draw() {
+    if (this.composer && this.fx > 0.02) {
+      this.bloom.strength = 1.3 * this.fx;
+      this.composer.render();
+    } else this.renderer.render(this.scene, this.camera);
+  }
+
+  resize() {
+    super.resize();
+    this.composer?.setSize(window.innerWidth, window.innerHeight);
+  }
 
   // ---------- pointer ----------
 
@@ -440,6 +476,7 @@ export class GoStopScene extends Stage {
     }
     this.bursts = this.bursts.filter((b) => { if (b.t < b.life) return true; this.scene.remove(b.pts); return false; });
 
+    if (this.fx > 0) this.fx = Math.max(0, this.fx - dt / (this.fxFade ?? 1.2));
     // a slam shakes the view for a moment
     this.shake *= Math.exp(-14 * dt);
     const s = this.shake;

@@ -336,10 +336,13 @@ export class Stage {
     const glow = this.handGlow();
     for (const material of this.hand.materials) applyGlow(material, glow, wave);
 
-    this.renderer.render(this.scene, this.camera);
+    this.draw();
   }
 
   // ---------- hooks for the game scene ----------
+
+  /** Draw the frame (a scene may route it through post-processing). */
+  draw() { this.renderer.render(this.scene, this.camera); }
 
   /** Place the camera for the given aspect ratio. */
   frameCamera(_aspect) {}
