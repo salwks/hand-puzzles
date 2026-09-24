@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildPiece } from './pieces.js';
-import { woodMaps, lacqueredWood, contactShadow } from './materials.js';
+import { woodUV, woodMaps, lacqueredWood, contactShadow } from './materials.js';
 import { Stage, COLOR, NO_GLOW, applyGlow, clamp, damp, easeOutCubic, easeInQuad, easeOutBounce } from './stage.js';
 
 const SIZE = 4;
@@ -93,8 +93,8 @@ export class Scene3D extends Stage {
     // Ebony frame with a thin brass line inlaid around the playing field.
     const ebony = woodMaps('#1a1410', '#030201', 29, { pores: 60, highlights: false });
     const frame = new THREE.Mesh(
-      new RoundedBoxGeometry(4.9, 0.2, 4.9, 4, 0.035),
-      lacqueredWood(ebony, { repeat: 2.2, roughness: 0.55, clearcoat: 0.25 }), // satin, not gloss: gloss turns black wood grey
+      woodUV(new RoundedBoxGeometry(4.9, 0.2, 4.9, 4, 0.035), 'x', 1.8),
+      lacqueredWood(ebony, { repeat: 1, roughness: 0.55, clearcoat: 0.25 }), // satin, not gloss: gloss turns black wood grey
     );
     frame.position.y = -0.115;
     frame.receiveShadow = true;

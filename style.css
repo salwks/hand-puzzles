@@ -451,3 +451,42 @@ body.intro #tile-tags { visibility: hidden; }
 #guide-body ol.cands li.best { border-color: var(--emerald); color: var(--ivory); }
 #guide-body ol.cands .no { font-size: 15px; color: var(--gold); width: 16px; }
 #guide-body .why { color: var(--emerald-tint); }
+
+/* ---------- luxury motion: slow gold breathing, light sweeps, reward entrance ---------- */
+@keyframes gold-breathe {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(184, 155, 94, 0.35), 0 0 14px rgba(184, 155, 94, 0.08); }
+  50% { box-shadow: 0 0 0 1px rgba(205, 178, 122, 0.8), 0 0 26px rgba(205, 178, 122, 0.28); }
+}
+@keyframes sweep { from { transform: translateX(-120%) skewX(-18deg); } to { transform: translateX(320%) skewX(-18deg); } }
+@keyframes rise { from { opacity: 0; transform: translateY(26px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes tag-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(63, 159, 121, 0.0); } 50% { box-shadow: 0 0 14px 2px rgba(63, 159, 121, 0.45); } }
+
+.btn.primary, body.mj .dock button:not([hidden]), .call-opt { position: relative; overflow: hidden; }
+.btn.primary::after, body.mj .dock button::after, .call-opt::before {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 34%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 214, 0.28), transparent);
+  animation: sweep 3.6s ease-in-out infinite; animation-delay: 1.2s;
+}
+body.mj .dock button { color: var(--gold-hi); animation: gold-breathe 2.6s ease-in-out infinite; }
+#b-tsumo:not([hidden]) { background: var(--gold); color: #14100a; }
+#banner { transition: border-color 0.4s, box-shadow 0.4s; }
+body.mj #banner { animation: gold-breathe 3.2s ease-in-out infinite; }
+.mj-seat.turn { animation: gold-breathe 1.8s ease-in-out infinite; border-color: var(--gold); }
+#callbox { animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), gold-breathe 2.2s ease-in-out 0.35s infinite; }
+.tile-tag.best { animation: tag-pulse 1.8s ease-in-out infinite; }
+#hint { transition: box-shadow 0.4s; }
+
+#result .card.enter { animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+#result .card.enter #res-yaku div { animation: fade-up 0.4s ease-out both; animation-delay: calc(0.45s + var(--i, 0) * 0.12s); }
+#result .card.enter .mj-row .mj-tile { animation: fade-up 0.35s ease-out both; }
+#result .card.enter .mj-row .mj-tile:nth-child(n) { animation-delay: 0.3s; }
+#result .card.mine { border-top: 1px solid var(--gold-hi); animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both, gold-breathe 2.4s ease-in-out 0.6s infinite; }
+#result .card.mine #res-title, #result .card.mine #res-points b {
+  background: linear-gradient(100deg, #b89b5e 20%, #fff1c9 40%, #d6b56a 55%, #b89b5e 80%);
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shine 2.8s linear infinite;
+}
+#result .card.mine .mj-row .win .mj-tile { box-shadow: 0 0 0 2px var(--gold-hi), 0 0 22px rgba(242, 207, 122, 0.6); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }

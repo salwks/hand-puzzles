@@ -3,7 +3,7 @@
 // like a real piece between finger and thumb; where it would land is drawn on the board.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { woodMaps, lacqueredWood } from './materials.js';
+import { woodUV, woodMaps, lacqueredWood } from './materials.js';
 import { Stage, COLOR, NO_GLOW, applyGlow, damp, easeOutCubic, easeInOutCubic } from './stage.js';
 import { SHAPES, ROWS } from './penta-logic.js';
 
@@ -241,8 +241,8 @@ export class PentaScene extends Stage {
     }
     const ebony = woodMaps('#1a1410', '#030201', 29, { pores: 60, highlights: false });
     const frame = new THREE.Mesh(
-      new RoundedBoxGeometry(cols + 0.9, 0.2, ROWS + 0.9, 4, 0.035),
-      lacqueredWood(ebony, { repeat: 2.2, roughness: 0.55, clearcoat: 0.25 }),
+      woodUV(new RoundedBoxGeometry(cols + 0.9, 0.2, ROWS + 0.9, 4, 0.035), 'x', 1.8),
+      lacqueredWood(ebony, { repeat: 1, roughness: 0.55, clearcoat: 0.25 }),
     );
     frame.position.set(0, -0.115, this.boardZ);
     frame.receiveShadow = true;

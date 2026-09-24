@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { woodMaps, lacqueredWood, feltMaterial } from './materials.js';
+import { woodMaps, lacqueredWood, feltMaterial, woodUV } from './materials.js';
 import { Stage, COLOR, NO_GLOW, applyGlow, damp, easeInOutCubic } from './stage.js';
 import { typeOf } from './mj-logic.js';
 
@@ -117,11 +117,12 @@ export class MahjongScene extends Stage {
     felt.position.y = -0.05;
     felt.receiveShadow = true;
     const walnut = woodMaps('#3a2418', '#120804', 31, { pores: 80 });
-    const frameMat = lacqueredWood(walnut, { repeat: 1.5, roughness: 0.45, clearcoat: 0.6 });
+    const frameMat = lacqueredWood(walnut, { repeat: 1, roughness: 0.45, clearcoat: 0.6 });
     const frame = new THREE.Group();
     for (const [w, d, x, z] of [[HALF * 2 + 0.9, 0.45, 0, HALF + 0.225], [HALF * 2 + 0.9, 0.45, 0, -HALF - 0.225],
       [0.45, HALF * 2, HALF + 0.225, 0], [0.45, HALF * 2, -HALF - 0.225, 0]]) {
-      const m = new THREE.Mesh(new RoundedBoxGeometry(w, 0.26, d, 3, 0.05), frameMat);
+      // grain runs along each rail's length, at true scale
+      const m = new THREE.Mesh(woodUV(new RoundedBoxGeometry(w, 0.26, d, 3, 0.05), w > d ? 'x' : 'z', 1.8), frameMat);
       m.position.set(x, 0.03, z);
       m.castShadow = m.receiveShadow = true;
       frame.add(m);
@@ -134,7 +135,7 @@ export class MahjongScene extends Stage {
     }
     // centre console with the round's wind
     const ebony = woodMaps('#1a1410', '#030201', 29, { pores: 60, highlights: false });
-    const consoleMesh = new THREE.Mesh(new RoundedBoxGeometry(1.25, 0.1, 1.25, 3, 0.04), lacqueredWood(ebony, { repeat: 1, roughness: 0.4, clearcoat: 0.8 }));
+    const consoleMesh = new THREE.Mesh(woodUV(new RoundedBoxGeometry(1.25, 0.1, 1.25, 3, 0.04), 'x', 1.4), lacqueredWood(ebony, { repeat: 1, roughness: 0.4, clearcoat: 0.8 }));
     consoleMesh.position.y = 0.05;
     consoleMesh.castShadow = consoleMesh.receiveShadow = true;
     this.windCanvas = document.createElement('canvas');
@@ -279,6 +280,41 @@ export class MahjongScene extends Stage {
     if (pos) this.drawSpot.position.set(pos.x, 0.004, pos.z);
   }
 
+  /** Reward for a win: the winning hand ripples and glows gold, and gold dust rises from it. */
+  celebrate(ids, { strong = true } = {}) {
+    ids.forEach((id, i) => {
+      const o = this.tiles.get(id);
+      if (!o) return;
+      o.glow = { color: 0xe0b45a, intensity: 0.8, pulse: true };
+      const base = o.root.position.clone();
+      this.tween({
+        dur: 0.7, delay: 0.25 + i * 0.07,
+        update: (k) => { o.root.position.y = base.y + Math.sin(Math.PI * k) * 0.45; },
+        done: () => { o.root.position.y = base.y; },
+      });
+    });
+    if (!strong || !ids.length) return;
+    const c = new THREE.Vector3();
+    for (const id of ids) c.add(this.tiles.get(id).root.position);
+    c.divideScalar(ids.length);
+    this.burst(c);
+  }
+
+  burst(at, count = 420) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3), vel = [];
+    for (let i = 0; i < count; i++) {
+      pos.set([at.x + (Math.random() - 0.5) * 3, at.y + Math.random() * 0.3, at.z + (Math.random() - 0.5) * 1.2], i * 3);
+      vel.push([(Math.random() - 0.5) * 0.9, 1.2 + Math.random() * 2.4, (Math.random() - 0.5) * 0.9]);
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ color: 0xf2cf7a, size: 0.07, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending });
+    const pts = new THREE.Points(geo, mat);
+    this.scene.add(pts);
+    this.bursts ??= [];
+    this.bursts.push({ pts, vel, t: 0 });
+  }
+
   setGlow(id, glow) {
     const o = this.tiles.get(id);
     if (o) o.glow = glow ?? NO_GLOW;
@@ -328,6 +364,19 @@ export class MahjongScene extends Stage {
       applyGlow(o.jade, o.glow, wave, 0.6);
     }
     this.zone.material.opacity += ((this.zoneOn ? 0.55 + 0.25 * wave : 0) - this.zone.material.opacity) * damp(8, dt);
+    for (const b of this.bursts ?? []) {
+      b.t += dt;
+      const a = b.pts.geometry.attributes.position;
+      for (let i = 0; i < b.vel.length; i++) {
+        const v = b.vel[i];
+        v[1] -= 1.4 * dt; // slow fall, like dust in lamplight
+        a.setXYZ(i, a.getX(i) + v[0] * dt, a.getY(i) + v[1] * dt, a.getZ(i) + v[2] * dt);
+      }
+      a.needsUpdate = true;
+      b.pts.material.opacity = Math.max(0, 1 - b.t / 2.8);
+      b.pts.material.size = 0.07 * (1 + 0.3 * Math.sin(b.t * 20));
+    }
+    this.bursts = (this.bursts ?? []).filter((b) => { if (b.t < 2.8) return true; this.scene.remove(b.pts); return false; });
     this.drawSpot.material.opacity = this.drawSpotOn ? 0.55 + 0.35 * wave : 0;
     this.drawSpot.scale.setScalar(this.drawSpotOn ? 1 + 0.12 * wave : 1);
   }

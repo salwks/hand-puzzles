@@ -184,3 +184,24 @@ export function feltMaterial(color = 0x1b3a2c, repeat = 10) {
     color, roughness: 0.92, bumpMap, bumpScale: 0.35, sheen: 0.8, sheenRoughness: 0.7, sheenColor: 0x5f8f74,
   });
 }
+
+/**
+ * Wood UVs in real units: each face is mapped by its true size (no stretching on long, thin
+ * pieces) and the grain — which runs along the texture's v axis — follows `grain` ('x'|'y'|'z').
+ * `scale` = world units per texture tile. Call on a geometry before it is used.
+ */
+export function woodUV(geometry, grain = 'x', scale = 1.6) {
+  const pos = geometry.attributes.position, nor = geometry.attributes.normal, uv = geometry.attributes.uv;
+  const g = 'xyz'.indexOf(grain);
+  for (let i = 0; i < pos.count; i++) {
+    const n = [Math.abs(nor.getX(i)), Math.abs(nor.getY(i)), Math.abs(nor.getZ(i))];
+    const dom = n.indexOf(Math.max(...n)); // which way this face points
+    const p = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    const inPlane = [0, 1, 2].filter((a) => a !== dom);
+    const along = inPlane.includes(g) ? g : inPlane[0]; // end grain faces just take the first axis
+    const across = inPlane.find((a) => a !== along);
+    uv.setXY(i, p[across] / scale, p[along] / scale);
+  }
+  uv.needsUpdate = true;
+  return geometry;
+}

@@ -416,6 +416,7 @@ async function win(s, { tsumo = false, from = null, tile, result }) {
   if (!tsumo) { state.rivers[from] = state.rivers[from].filter((d) => d.id !== tile); layoutRiver(from); state.hands[s].push(tile); }
   say(s, tsumo ? '쯔모' : '론');
   layoutHand(s);
+  setTimeout(() => scene.celebrate(state.hands[s], { strong: s === 0 || result.yakuman }), 350);
   const p = result.points;
   const delta = [0, 0, 0, 0];
   if (tsumo) {
@@ -468,12 +469,28 @@ function showResult({ title, over, hand = null, melds = [], winTile = null, resu
       + `<span class="gap"></span><span class="win">${faceImg(typeOf(winTile))}</span>`;
   }
   $('#res-tiles').innerHTML = tiles;
-  $('#res-yaku').innerHTML = result ? result.yaku.map((y) => `<div><span>${y.name}</span><b>${y.han >= 13 ? '역만' : `${y.han}판`}</b></div>`).join('')
+  $('#res-yaku').innerHTML = result ? result.yaku.map((y, i) => `<div style="--i:${i}"><span>${y.name}</span><b>${y.han >= 13 ? '역만' : `${y.han}판`}</b></div>`).join('')
     + (result.dora ? `<div><span>도라</span><b>${result.dora}</b></div>` : '') : '';
   const pts = result?.points;
   $('#res-points').innerHTML = result ? `<span class="han">${result.yakuman ? '역만' : `${result.han}판 ${result.fu}부`}</span><b>${fmt(pts.total)}</b><span class="split">${pts.limit || ''}${pts.fromDealer ? ` · ${fmt(pts.fromOthers)} / ${fmt(pts.fromDealer)}` : pts.each ? ` · ${fmt(pts.each)} all` : ''}</span>` : `<span class="han">${text}</span>`;
   $('#res-scores').innerHTML = [0, 1, 2, 3].map((s) => `<div><dt>${NAMES[s]}</dt><dd>${fmt(state.scores[s])}</dd><span class="${delta[s] > 0 ? 'up' : delta[s] < 0 ? 'down' : ''}">${delta[s] ? (delta[s] > 0 ? '+' : '') + fmt(delta[s]) : '±0'}</span></div>`).join('');
+  const card = $('#result .card');
+  card.classList.toggle('mine', Boolean(result) && delta[0] > 0);
+  card.classList.remove('enter');
+  void card.offsetWidth; // restart the entrance animation
+  card.classList.add('enter');
   $('#result').hidden = false;
+  // the points count up
+  const b = $('#res-points b');
+  if (b && result) {
+    const total = result.points.total, t0 = performance.now();
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / 1300);
+      b.textContent = fmt(Math.round(total * (1 - (1 - k) ** 3) / 100) * 100);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
 }
 
 function nextHand() {
