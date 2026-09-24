@@ -2,10 +2,14 @@
 // it) and the water follows: waves, reflections off the glass, foam where they meet,
 // spray and bubbles, and a toy surfer riding whatever you make.
 import { WaterScene } from './water-scene.js';
+import { FluidScene, GRID, FLUID_FILL } from './fluid-scene.js';
+import { FluidGPU } from './fluid-gpu.js';
 import { createShell } from './shell.js';
 
 const $ = (sel) => document.querySelector(sel);
-const scene = new WaterScene($('#stage'));
+// Particle water where WebGPU is available; the surface-sheet version everywhere else.
+const fluid = await FluidGPU.create({ grid: GRID, fill: FLUID_FILL }).catch(() => null);
+const scene = fluid ? new FluidScene($('#stage'), fluid) : new WaterScene($('#stage'));
 const shell = createShell({ scene, gameId: 'water' });
 const { onStage } = shell;
 
@@ -45,9 +49,9 @@ shell.attach({
   requestAnimationFrame(watch);
 })();
 
-$('#b-calm').addEventListener('click', () => scene.sim.calm());
+$('#b-calm').addEventListener('click', () => (fluid ? fluid.reset() : scene.sim.calm()));
 $('#b-surfer').addEventListener('click', () => Object.assign(scene.surfer, { x: 0, z: 0, vx: 0, vz: 0 }));
 for (const id of ['#btn-start-mouse', '#btn-start-cam']) $(id).addEventListener('click', () => {}, { once: true });
 
 // Debug / test handle
-window.__water = { scene, hand: shell.injectHandFrame };
+window.__water = { scene, fluid, hand: shell.injectHandFrame };
