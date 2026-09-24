@@ -441,3 +441,13 @@ body.guide #hint-body { display: none; } body:not(.guide) #guide-body { display:
 .call-opt.rec::after { content: '추천'; font: 500 11px var(--sans); letter-spacing: 0.1em; color: var(--emerald-tint); }
 .guide-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.6; color: var(--muted); cursor: pointer; }
 .guide-check b { color: var(--ivory); } .guide-check input { margin-top: 5px; accent-color: var(--gold); }
+
+#tile-tags { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+body.intro #tile-tags { visibility: hidden; }
+.tile-tag { position: absolute; left: 0; top: 0; padding: 3px 8px; background: rgba(20, 18, 16, 0.88); border: 1px solid var(--line); color: var(--ivory); font-size: 12px; letter-spacing: 0.04em; white-space: nowrap; }
+.tile-tag.best { border-color: var(--emerald); color: var(--emerald-tint); font-weight: 600; }
+#guide-body ol.cands { list-style: none; margin: 4px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+#guide-body ol.cands li { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--muted); padding: 4px 6px; border: 1px solid transparent; }
+#guide-body ol.cands li.best { border-color: var(--emerald); color: var(--ivory); }
+#guide-body ol.cands .no { font-size: 15px; color: var(--gold); width: 16px; }
+#guide-body .why { color: var(--emerald-tint); }

@@ -3,7 +3,7 @@
 // towards you to call it. One east-round game (동풍전).
 import {
   makeWall, typeOf, counts, shanten, waits, evaluate, chiOptions, ponOK, kanOK, bestDiscard,
-  tileName, EAST, HAKU, isHonor, isTerminal,
+  tileName, EAST, HAKU, isHonor, isTerminal, isYaochu, ukeire,
 } from './mj-logic.js';
 import { MahjongScene, drawFace, TW, TH } from './mj-scene.js';
 import { createShell } from './shell.js';
@@ -64,7 +64,11 @@ function layoutHand(s, { instant = false } = {}) {
   ids.forEach((id, i) => {
     const target = open && s !== 0 ? scene.openHandPose(s, i, ids.length)
       : scene.handPose(s, i, ids.length, drawn !== null && i === ids.length - 1, state.melds[s].length);
-    if (s === 0 && state.hover === id && state.phase === 'discard') target.p.y += 0.12;
+    if (s === 0 && state.phase === 'discard') {
+      // candidates stand a little proud of the hand, the recommended one most
+      const tag = state.tagged?.find((x) => x.id === id);
+      target.p.y += state.hover === id ? 0.14 : tag?.best ? 0.1 : tag ? 0.05 : 0;
+    }
     scene.place(id, target, { face: s === 0 || open, dur: 0.28, arc: 0.05, instant });
   });
 }
@@ -619,26 +623,65 @@ const P = (t) => `<p>${t}</p>`;
 const threats = (s) => [0, 1, 2, 3].filter((o) => o !== s && state.riichi[o]);
 const isSafeFor = (s, t) => threats(s).every((o) => state.rivers[o].some((d) => typeOf(d.id) === t));
 
-/** What the guide recommends discarding now, and why. */
-function recommendDiscard() {
+const CIRCLED = ['①', '②', '③', '④'];
+
+/** A short reason why a single tile is a weak part of the hand. */
+function tileTag(c, t) {
+  if (isHonor(t) && c[t] === 1) return '짝 없는 자패';
+  if (isTerminal(t) && c[t] === 1) return '1·9 단독';
+  const near = [-2, -1, 1, 2].some((d) => { const x = t + d; return t < 27 && x >= 0 && x < 27 && Math.floor(x / 9) === Math.floor(t / 9) && c[x]; });
+  if (t < 27 && c[t] === 1 && !near) return '외톨이';
+  if (c[t] >= 2) return '짝을 깸';
+  return '몸통 후보를 깸';
+}
+
+/**
+ * Reasonable discards, best first (up to 4): every tile whose removal keeps the hand as close to
+ * winning as possible, ranked by acceptance (and safety against a riichi).
+ */
+function discardCandidates() {
   const c = counts(handTypes(0)), m = state.melds[0].length, u = unseen(0);
-  if (state.riichi[0]) return { t: typeOf(state.drawn), why: '리치 중에는 가져온 패를 그대로 버립니다.' };
+  if (state.riichi[0]) return [{ t: typeOf(state.drawn), s: 0, u: 0, tag: '리치 중', only: true }];
   const th = threats(0);
+  const list = [];
+  for (let t = 0; t < 34; t++) {
+    if (!c[t]) continue;
+    const tag = tileTag(c, t);
+    c[t]--;
+    const sh = shanten(c, m);
+    const w = sh === 0 ? waits(c, m) : [];
+    const acc = sh === 0 ? w.reduce((a, x) => a + u[x], 0) : sh <= 3 ? ukeire(c, m, u) : 0;
+    c[t]++;
+    const safe = th.length ? isSafeFor(0, t) : null;
+    list.push({ t, s: sh, u: acc, w, tag, safe });
+  }
   const sh0 = shanten(c, m);
-  const danger = th.length ? (t) => (isSafeFor(0, t) ? 0 : sh0 >= 2 ? 100 : 3) : null;
-  const best = bestDiscard(c, m, u, danger);
-  const t = best.t;
-  c[t]--;
-  const after = shanten(c, m), w = after === 0 ? waits(c, m) : [];
-  c[t]++;
-  let why;
-  if (th.length && sh0 >= 2 && isSafeFor(0, t)) why = `<b>${th.map((o) => NAMES[o]).join(', ')}</b>의 리치가 무섭습니다. 완성이 멀 때는 그 사람 하천에 이미 있는 패(<b>현물</b>)를 버리면 론 당하지 않습니다.`;
-  else if (after === 0) why = `버리면 <b>텐파이</b> — 한 장만 더 오면 완성입니다. 대기: ${w.map(faceImg).join('')} (${w.reduce((a, x) => a + u[x], 0)}장 남음)`;
-  else if (isHonor(t) && c[t] === 1) why = '짝이 없는 <b>자패</b>입니다. 같은 패가 더 오지 않으면 몸통이 될 수 없어요.';
-  else if (isTerminal(t) && c[t] === 1) why = '<b>1·9</b>는 이어 붙을 숫자가 한쪽뿐이라 몸통이 되기 어렵습니다.';
-  else if (t < 27 && c[t] === 1 && ![-2, -1, 1, 2].some((d) => { const x = t + d; return x >= 0 && x < 27 && Math.floor(x / 9) === Math.floor(t / 9) && c[x]; })) why = '가까운 숫자가 없는 <b>외톨이</b> 패입니다.';
-  else why = `남은 패로 가장 빨리 완성할 수 있는 선택입니다 (유효패 ${best.u}장).`;
-  return { t, why, after, waits: w };
+  const folding = th.length && sh0 >= 2;
+  const score = (x) => (folding ? (x.safe ? 1e6 : 0) : 0) - x.s * 1000 + x.u + (th.length && x.safe ? 30 : 0) + (isYaochu(x.t) ? 3 : 0);
+  list.sort((x, y) => score(y) - score(x));
+  const bestS = list[0].s;
+  const top = list.filter((x) => (folding ? x.safe === list[0].safe : x.s === bestS)).slice(0, 4);
+  return top.length ? top : list.slice(0, 1);
+}
+
+function candidateLine(x) {
+  if (x.only) return '리치 중이라 가져온 패만 버릴 수 있습니다';
+  if (x.s === 0) return `텐파이 · 대기 ${x.w.map(faceImg).join('')} ${x.u}장`;
+  return `${x.tag} · 유효패 ${x.u}장${x.safe ? ' · 현물(안전)' : ''}`;
+}
+
+/** Why the first candidate beats the others. */
+function recommendReason(list) {
+  const [a, b] = list;
+  const th = threats(0);
+  if (a.only) return '리치하면 손을 바꿀 수 없습니다.';
+  if (th.length && a.safe && !(b?.safe)) return `<b>${th.map((o) => NAMES[o]).join(', ')}</b>가 리치했습니다. 이 패는 그 사람 하천에 이미 있는 <b>현물</b>이라 버려도 론 당하지 않습니다.`;
+  if (!b) return a.s === 0 ? '이 패를 버리면 텐파이가 됩니다.' : '손을 가장 빨리 완성할 수 있는 선택입니다.';
+  if (a.s === 0) return a.u > b.u ? `텐파이 후 기다리는 패가 가장 많습니다 (${a.u}장, 다음은 ${b.u}장).` : '대기 장수가 같다면 쓸모가 적은 패부터 버립니다.';
+  if (a.u > b.u) return `남겨 둔 패로 완성에 가까워질 수 있는 패(유효패)가 가장 많습니다 — ${a.u}장, 다음 후보는 ${b.u}장.`;
+  if (isHonor(a.t)) return '효율이 같다면 쓰임새가 적은 <b>자패</b>부터 정리하는 것이 기본입니다.';
+  if (isTerminal(a.t)) return '효율이 같다면 이어 붙기 어려운 <b>1·9</b>부터 정리합니다.';
+  return '효율이 같다면 가장 고립된 패부터 버립니다.';
 }
 
 /** Whether calling this discard is a good idea for a beginner, and why. */
@@ -664,16 +707,23 @@ function renderGuide() {
       + P('몸통 = 같은 패 3장(예: 東東東) 또는 이어진 숫자 3장(예: 3·4·5만). 머리 = 같은 패 2장.')
       + P('매 차례 산에서 <b>1장 가져오고 1장 버립니다</b>.');
   } else if (ph === 'draw') {
-    html = HEAD('가져오기') + P('당신 차례입니다. 산에서 <b>빛나는 패</b>를 집어 내 앞으로 가져오세요.') + P(`지금 손: 완성까지 <b>${Math.max(0, shanten(c, m))}장</b> 더 필요 (샹텐).`);
+    html = HEAD('가져오기') + P('당신 차례입니다. 산에서 <b>밝게 빛나는 패</b>("가져오기" 표시)를 집어 내 앞으로 가져오세요.') + P(`지금 손: 완성까지 <b>${Math.max(0, shanten(c, m))}장</b> 더 필요 (샹텐).`);
   } else if (ph === 'discard') {
     if (state.options?.tsumo) {
       const y = state.options.tsumo.yaku.map((x) => x.name).join(' · ');
       html = HEAD('쯔모!') + P(`가져온 패로 손이 완성됐습니다 (<b>${y}</b>). <b>쯔모</b> 버튼을 누르세요.`);
     } else {
-      const rec = state.guideRec = recommendDiscard();
-      html = HEAD('버리기') + P(`추천: ${faceImg(rec.t)} <span class="muted">(테이블에서 초록빛)</span>`) + P(rec.why);
+      const list = state.guideCands = discardCandidates();
+      const rec = state.guideRec = list[0];
+      html = HEAD('버리기');
+      if (list.length > 1) {
+        html += P(`밝게 빛나는 <b>후보 ${list.length}장</b>:`) + `<ol class="cands">${list.map((x, i) => `<li class="${i ? '' : 'best'}"><span class="no">${CIRCLED[i]}</span>${faceImg(x.t)}<span>${candidateLine(x)}</span></li>`).join('')}</ol>`
+          + P(`그중 <b>${CIRCLED[0]} ${tileName(rec.t)}</b>을 추천합니다. <span class="why">이유: ${recommendReason(list)}</span>`);
+      } else {
+        html += P(`추천: ${faceImg(rec.t)} <b>${tileName(rec.t)}</b> — ${candidateLine(rec)}`) + P(`<span class="why">이유: ${recommendReason(list)}</span>`);
+      }
       if (state.options?.riichi) html += HEAD('리치할 수 있어요') + P('텐파이이고 울지 않았습니다. 버릴 때 <b>리치</b>하면 역 1판이 생기고 점수가 커집니다. 대신 1000점을 걸고, 이후엔 가져온 패만 버려야 합니다.') + P(shell.handActive() ? '패를 든 채 <b>손목을 비틀어</b> 가로로 눕히고 하천에 놓으세요.' : '<b>리치</b> 버튼(또는 R 키)을 누른 뒤 추천 패를 하천에 놓으세요.');
-      if (rec.after === 0 && !isClosed(0)) {
+      if (rec.s === 0 && !isClosed(0)) {
         c[rec.t]--;
         const noYaku = waits(c, m).every((x) => !evaluate({ ...winCtx(0, x, false, { ronTile: x }), closed: [...handTypes(0).filter((_, i, arr) => i !== arr.indexOf(rec.t)), x] }));
         c[rec.t]++;
@@ -707,16 +757,28 @@ function renderGuide() {
   $('#b-pass').classList.toggle('rec', Boolean(guideOn && state.guideCall && !state.guideCall.kind));
 }
 
-/** Hovered tile glows gold; in guide mode the recommended discard glows green. */
+/** Hovered tile glows gold; in guide mode the candidate discards glow bright and the recommended one green. */
 function applyHandGlows() {
-  const rec = guideOn && state.phase === 'discard' && !state.options?.tsumo ? state.guideRec : null;
-  let recMarked = false;
+  const cands = guideOn && state.phase === 'discard' && !state.options?.tsumo ? state.guideCands ?? [] : [];
+  state.tagged = [];
+  const used = new Set();
+  cands.forEach((x, i) => {
+    const pool = state.hands[0].filter((id) => typeOf(id) === x.t && !used.has(id) && (!state.riichi[0] || id === state.drawn));
+    const id = pool.includes(state.drawn) ? state.drawn : pool[pool.length - 1];
+    if (id === undefined) return;
+    used.add(id);
+    state.tagged.push({ id, label: i === 0 ? `${CIRCLED[0]} 추천` : CIRCLED[i], best: i === 0 });
+  });
   for (const id of state.hands[0]) {
+    const tag = state.tagged.find((x) => x.id === id);
     let g = null;
-    if (id === state.hover) g = { color: COLOR.hover, intensity: 0.45, pulse: false };
-    else if (rec && !recMarked && typeOf(id) === rec.t && (!state.riichi[0] || id === state.drawn)) { g = { color: COLOR.hint, intensity: 0.55, pulse: true }; recMarked = true; }
+    if (id === state.hover) g = { color: COLOR.hover, intensity: 0.5, pulse: false };
+    else if (tag?.best) g = { color: COLOR.hint, intensity: 0.7, pulse: true };
+    else if (tag) g = { color: 0xfff0c8, intensity: 0.42, pulse: false };
     scene.setGlow(id, g);
   }
+  if (guideOn && state.phase === 'draw' && state.drawTarget !== null) state.tagged.push({ id: state.drawTarget, label: '가져오기', best: true });
+  if (guideOn && state.phase === 'call' && state.callWin) state.tagged.push({ id: state.callWin.id, label: '가져올 수 있음', best: true });
 }
 
 function setGuide(on) {
@@ -758,7 +820,9 @@ function render(full = true) {
   }
   updateBanner();
   if (guideOn) renderGuide(); else renderHint();
+  const before = (state.tagged ?? []).map((x) => x.id).join();
   applyHandGlows();
+  if (state.phase === 'discard' && before !== state.tagged.map((x) => x.id).join()) layoutHand(0);
   renderSeats();
 }
 
@@ -822,7 +886,25 @@ function renderSeats() {
 }
 setInterval(renderSeats, 250);
 
+function placeTags() {
+  const box = $('#tile-tags');
+  const tags = guideOn && !modalOpen() && !state.drag ? state.tagged ?? [] : [];
+  while (box.children.length < tags.length) box.append(document.createElement('div'));
+  [...box.children].forEach((el, i) => {
+    const tag = tags[i];
+    el.hidden = !tag;
+    if (!tag) return;
+    const o = scene.tile(tag.id);
+    if (!o) { el.hidden = true; return; }
+    const p = o.root.position, pt = scene.toScreen(p.x, p.y + 0.34, p.z);
+    el.textContent = tag.label;
+    el.className = `tile-tag${tag.best ? ' best' : ''}`;
+    el.style.transform = `translate(${pt.x}px, ${pt.y}px) translate(-50%, -100%)`;
+  });
+}
+
 function placeLabels() {
+  placeTags();
   for (let s = 1; s <= 3; s++) {
     const pt = scene.seatScreen(s);
     $(`#seat-${s}`).style.transform = `translate(${pt.x}px, ${pt.y}px) translate(-50%, -50%)`;
