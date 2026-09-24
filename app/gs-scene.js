@@ -276,13 +276,15 @@ export class GoStopScene extends Stage {
     }
     if (!o.moving && o.root.position.distanceTo(target.p) < 1e-3 && o.root.quaternion.angleTo(target.q) < 1e-3 && Math.abs(o.root.scale.x - s1) < 1e-3) return;
     const p0 = o.root.position.clone(), q0 = o.root.quaternion.clone(), s0 = o.root.scale.x;
+    // the arc is for real journeys: a card nudged along its pile or fan slides flat
+    const lift = arc * Math.min(1, Math.max(0, (p0.distanceTo(target.p) - 0.1) / 0.9));
     o.moving = true;
     this.tween({
       dur, delay,
       update: (k) => {
         const e = easeInOutCubic(k);
         o.root.position.lerpVectors(p0, target.p, e);
-        o.root.position.y += Math.sin(Math.PI * k) * arc;
+        o.root.position.y += Math.sin(Math.PI * k) * lift;
         o.root.quaternion.slerpQuaternions(q0, target.q, e);
         o.root.scale.setScalar(s0 + (s1 - s0) * e);
       },
