@@ -68,6 +68,40 @@ function tileTexture() {
   return t;
 }
 
+/**
+ * Wind-chop detail: a tileable height field of many small crossing waves, turned into a
+ * normal map. Laid over the simulated swell it makes the water read as a large body.
+ */
+function chopTexture() {
+  const N = 256;
+  const hgt = new Float32Array(N * N);
+  const waves = [];
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * Math.PI * 2, f = 2 + Math.floor(Math.random() ** 1.6 * 22);
+    waves.push([Math.round(Math.cos(a) * f), Math.round(Math.sin(a) * f), Math.random() * 6.28, 1 / f]);
+  }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let v = 0;
+    for (const [kx, ky, ph, amp] of waves) v += Math.sin((kx * x + ky * y) / N * 6.2832 + ph) * amp;
+    hgt[y * N + x] = v;
+  }
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const img = c.getContext('2d').createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = hgt[y * N + ((x + 1) % N)] - hgt[y * N + ((x + N - 1) % N)];
+    const dy = hgt[((y + 1) % N) * N + x] - hgt[((y + N - 1) % N) * N + x];
+    const k = (y * N + x) * 4;
+    img.data[k] = 128 + Math.max(-127, Math.min(127, -dx * 60));
+    img.data[k + 1] = 128 + Math.max(-127, Math.min(127, -dy * 60));
+    img.data[k + 2] = 255; img.data[k + 3] = 255;
+  }
+  c.getContext('2d').putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 const SIM_UNIFORMS = `
 uniform sampler2D hTex;
 uniform vec2 uSize;
@@ -88,6 +122,7 @@ export class WaterScene extends Stage {
     this.uniforms = {
       hTex: { value: this.hTex },
       foamTex: { value: this.foamTex },
+      chopTex: { value: chopTexture() },
       uSize: { value: new THREE.Vector2(W, D) },
       uTexel: { value: new THREE.Vector2(1 / NX, 1 / NZ) },
       uDx: { value: W / NX },
@@ -106,6 +141,7 @@ export class WaterScene extends Stage {
     this.buildSurfer();
     this.setLampScale(3.2);
     this.scene.environmentIntensity = 0.55;
+    this.hand.setSize(0.45); // a hand in scale with a pool-sized body of water
     this.start();
   }
 
@@ -180,8 +216,20 @@ export class WaterScene extends Stage {
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, U);
       shader.vertexShader = SIM_UNIFORMS + 'varying vec2 vWUv;\nattribute float aTop;\n' + shader.vertexShader;
-      shader.fragmentShader = SIM_UNIFORMS + 'uniform sampler2D foamTex;\nuniform float uTime;\nvarying vec2 vWUv;\n' + shader.fragmentShader;
+      shader.fragmentShader = SIM_UNIFORMS + 'uniform sampler2D foamTex;\nuniform sampler2D chopTex;\nuniform float uTime;\nvarying vec2 vWUv;\n' + shader.fragmentShader;
       if (surface) {
+        // small chop riding on the swell, stronger where the water is rough
+        shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `
+          #include <normal_fragment_maps>
+          {
+            float hC = texture2D(hTex, vWUv).r;
+            float rough = clamp(abs(texture2D(hTex, vWUv + vec2(uTexel.x * 2.0, 0.0)).r - texture2D(hTex, vWUv - vec2(uTexel.x * 2.0, 0.0)).r)
+                              + abs(texture2D(hTex, vWUv + vec2(0.0, uTexel.y * 2.0)).r - texture2D(hTex, vWUv - vec2(0.0, uTexel.y * 2.0)).r), 0.0, 0.06) / 0.06;
+            vec2 c1 = texture2D(chopTex, vWUv * vec2(3.0, 1.8) + vec2(uTime * 0.012, uTime * 0.007)).xy * 2.0 - 1.0;
+            vec2 c2 = texture2D(chopTex, vWUv * vec2(7.0, 4.2) - vec2(uTime * 0.009, -uTime * 0.013)).xy * 2.0 - 1.0;
+            vec2 chop = (c1 * 0.6 + c2 * 0.4) * (0.08 + 0.55 * rough + 0.25 * texture2D(hTex, vWUv).g);
+            normal = normalize(normal + (viewMatrix * vec4(chop.x, 0.0, chop.y, 0.0)).xyz);
+          }`);
         shader.vertexShader = shader.vertexShader
           .replace('#include <beginnormal_vertex>', `
             vec2 wuv = vec2(position.x / uSize.x + 0.5, position.z / uSize.y + 0.5);
@@ -195,11 +243,11 @@ export class WaterScene extends Stage {
         // foam: lace where the sim has foam, solid where it's thick
         shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
           float fr = texture2D(hTex, vWUv).g;
-          float n1 = texture2D(foamTex, vWUv * vec2(5.0, 3.0) + vec2(uTime * 0.004, 0.0)).r;
-          float n2 = texture2D(foamTex, vWUv * vec2(11.0, 6.6) - vec2(0.0, uTime * 0.006)).r;
+          float n1 = texture2D(foamTex, vWUv * vec2(9.0, 5.4) + vec2(uTime * 0.004, 0.0)).r;
+          float n2 = texture2D(foamTex, vWUv * vec2(21.0, 12.6) - vec2(0.0, uTime * 0.006)).r;
           float lace = n1 * 0.65 + n2 * 0.5;
-          float cover = clamp(fr * 1.4, 0.0, 1.0);
-          float fa = smoothstep(1.05 - cover, 1.2 - cover * 0.6, lace) * min(1.0, fr * 4.0);
+          float cover = clamp(fr * 2.4, 0.0, 1.0);
+          float fa = smoothstep(1.0 - cover, 1.15 - cover * 0.55, lace) * min(1.0, fr * 6.0);
           outgoingLight = mix(outgoingLight, vec3(0.9, 0.95, 0.96), clamp(fa, 0.0, 0.95));
           #include <opaque_fragment>`);
       } else {
@@ -391,6 +439,7 @@ export class WaterScene extends Stage {
     rider.rotation.y = Math.PI / 2; // stands sideways on the board, facing its right
     g.add(boardWrap, stripe, rider);
     g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    g.scale.setScalar(0.62);
     this.surfer = { g, rider, x: -0.8, z: 0.2, y: WL, vx: 0, vz: 0, yaw: 0, n: new THREE.Vector3(0, 1, 0), wobble: 0 };
     g.position.set(this.surfer.x, WL, this.surfer.z);
     this.scene.add(g);
@@ -433,11 +482,17 @@ export class WaterScene extends Stage {
 
   // ---------- hand / pointer in the water ----------
 
-  /** Screen position → where it meets the water. null when outside the tank. */
+  /**
+   * Screen position → a point in the water. Seen almost side-on, a ray to the surface would
+   * swing front-to-back on the slightest vertical move, so the screen maps straight onto the
+   * tank instead: across the screen is across the tank, down the screen is front-to-back.
+   */
   waterPoint(x, y) {
-    const p = this.pointOnPlane(x, y, WL);
-    if (!p || Math.abs(p.x) > W / 2 - 0.05 || Math.abs(p.z) > D / 2 - 0.05) return null;
-    return p;
+    const l = this.toScreen(-W / 2, WL, 0), r = this.toScreen(W / 2, WL, 0);
+    const u = (x - l.x) / (r.x - l.x);
+    if (u < -0.05 || u > 1.05) return null;
+    const v = Math.min(1, Math.max(0, (y / window.innerHeight - 0.22) / 0.6));
+    return new THREE.Vector3((Math.min(1, Math.max(0, u)) - 0.5) * (W - 0.1), WL, (v - 0.5) * (D - 0.1));
   }
 
   /** Called every frame with the pointer/hand state: in water or not, and where on screen. */
@@ -467,7 +522,7 @@ export class WaterScene extends Stage {
       }
       h.px = h.x; h.pz = h.z;
       const speed = Math.hypot(h.vx, h.vz);
-      sim.stirrers.push({ x: h.x, z: h.z, vx: h.vx, vz: h.vz, r: 0.15, strength: 0.55, foam: speed > 0.7 ? (speed - 0.7) * 3 : 0 });
+      sim.stirrers.push({ x: h.x, z: h.z, vx: h.vx, vz: h.vz, r: 0.15, strength: 0.55, foam: speed > 0.35 ? (speed - 0.35) * 9 : 0 });
       if (speed > 0.5 && Math.random() < speed * 0.9) this.emitBubble(h.x + (Math.random() - 0.5) * 0.2, WL - 0.05 - Math.random() * 0.25, h.z + (Math.random() - 0.5) * 0.2);
       if (speed > 1.6 && Math.random() < 0.6) {
         this.emitSpray(h.x, WL + 0.03, h.z, h.vx * 0.5 + (Math.random() - 0.5) * 0.6, 0.8 + Math.random() * speed * 0.5, h.vz * 0.5 + (Math.random() - 0.5) * 0.6);
@@ -477,8 +532,8 @@ export class WaterScene extends Stage {
     sim.update(dt);
 
     // spray off steep crests
-    for (const s of sim.spraySpots(4)) {
-      if (Math.random() > 0.5) continue;
+    for (const s of sim.spraySpots(8)) {
+      if (Math.random() > 0.7) continue;
       const [fu, fv] = sim.flowAt(s.x, s.z);
       const y = WL + sim.heightAt(s.x, s.z);
       for (let k = 0; k < 3; k++) this.emitSpray(s.x, y, s.z, fu * 0.6 + (Math.random() - 0.5) * 0.4, 0.4 + Math.random() * s.s * 0.8, fv * 0.6 + (Math.random() - 0.5) * 0.4);
@@ -528,13 +583,13 @@ export class WaterScene extends Stage {
   }
 
   frameCamera(aspect) {
-    const el = THREE.MathUtils.degToRad(28);
+    const el = THREE.MathUtils.degToRad(10); // nearly level with the tank, just above the waterline
     const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
     const forWidth = (W / 2 + 0.9) / (tanV * aspect);
-    const forHeight = 1.9 / tanV;
+    const forHeight = 1.5 / tanV;
     const dist = Math.max(forWidth, forHeight);
-    this.camera.position.set(0, 0.45 + Math.sin(el) * dist, Math.cos(el) * dist);
-    this.camera.lookAt(0, 0.45, 0);
+    this.camera.position.set(0, 0.62 + Math.sin(el) * dist, Math.cos(el) * dist);
+    this.camera.lookAt(0, 0.62, 0);
   }
 
   handAnchor() {

@@ -10,7 +10,7 @@ export class WaterSim {
    * @param {number} nx cells across (x) @param {number} nz cells deep (z)
    * @param {number} width tank inner width @param {number} depth tank inner depth (z extent)
    */
-  constructor(nx = 160, nz = 96, width = 4, depth = 2.4, { speed = 1.25 } = {}) {
+  constructor(nx = 160, nz = 96, width = 4, depth = 2.4, { speed = 0.75 } = {}) {
     this.nx = nx; this.nz = nz;
     this.w = width; this.d = depth;
     this.dx = width / nx;
@@ -103,7 +103,7 @@ export class WaterSim {
 
   step(dt) {
     const { nx, nz, dx, g, H, h, u, v } = this;
-    const damp = Math.exp(-0.12 * dt); // gentle loss, so the tank settles over ~10 s
+    const damp = Math.exp(-0.045 * dt); // a big body of water keeps moving for a long time
     // momentum: the slope pushes water downhill
     for (let j = 0; j < nz; j++) {
       const row = j * (nx + 1);
@@ -163,7 +163,7 @@ export class WaterSim {
   stepFoam(dt) {
     const { nx, nz, dx, h, u, v, foam } = this;
     const out = this.foamTmp;
-    const decay = Math.exp(-dt / 2.6);
+    const decay = Math.exp(-dt / 5.5);
     for (let j = 0; j < nz; j++) {
       for (let i = 0; i < nx; i++) {
         const k = j * nx + i;
@@ -177,12 +177,14 @@ export class WaterSim {
         let f = (foam[k0] * (1 - a) + foam[k0 + 1] * a) * (1 - b) + (foam[k0 + nx] * (1 - a) + foam[k0 + nx + 1] * a) * b;
         // birth: converging water (crests colliding, a wave slapping the glass)…
         const div = (u[j * (nx + 1) + i + 1] - u[j * (nx + 1) + i] + v[(j + 1) * nx + i] - v[j * nx + i]) / dx;
-        if (div < -2.2) f += (-div - 2.2) * 0.6 * dt;
+        if (div < -0.7) f += (-div - 0.7) * 1.6 * dt;
         // …and steep crests that would break
         const hl = i > 0 ? h[k - 1] : h[k], hr = i < nx - 1 ? h[k + 1] : h[k];
         const hd = j > 0 ? h[k - nx] : h[k], hu = j < nz - 1 ? h[k + nx] : h[k];
         const slope = Math.hypot(hr - hl, hu - hd) / (2 * dx);
-        if (slope > 0.5 && h[k] > 0.03) f += (slope - 0.5) * 2.5 * dt;
+        if (slope > 0.22 && h[k] > 0.01) f += (slope - 0.22) * 6 * dt;
+        const sp = Math.hypot(uc, vc);
+        if (sp > 0.28) f += (sp - 0.28) * 2.2 * dt; // fast water churns white
         out[k] = Math.min(1.6, f * decay);
       }
     }
@@ -197,7 +199,7 @@ export class WaterSim {
       const i = 1 + Math.floor(Math.random() * (nx - 2)), j = 1 + Math.floor(Math.random() * (nz - 2));
       const k = j * nx + i;
       const slope = Math.hypot(h[k + 1] - h[k - 1], h[k + nx] - h[k - nx]) / (2 * dx);
-      if (slope > 0.45 && h[k] > 0.03) spots.push({ x: (i + 0.5) * dx - this.w / 2, z: (j + 0.5) * dx - this.d / 2, s: slope });
+      if (slope > 0.3 && h[k] > 0.02) spots.push({ x: (i + 0.5) * dx - this.w / 2, z: (j + 0.5) * dx - this.d / 2, s: slope });
     }
     return spots;
   }

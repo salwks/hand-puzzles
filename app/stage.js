@@ -85,6 +85,7 @@ class HandModel {
 
     this.rigged = new RiggedHand(PALM_WORLD);
     this.group.add(this.rigged.group);
+    this.size = 1; // a scene can shrink or grow the hand to suit its scale
 
     this.materials = [material, this.palm.material, this.rigged.material];
     this.offsets = Array.from({ length: 21 }, () => new THREE.Vector3());
@@ -96,6 +97,11 @@ class HandModel {
     this.fresh = true;
   }
 
+  setSize(k) {
+    this.size = k;
+    this.rigged.palmWorld = PALM_WORLD * k;
+  }
+
   /** @param landmarks MediaPipe landmarks; @param aspect video width/height; @param anchor world pinch point */
   update(landmarks, aspect, anchor, side = 'right') {
     // Work in "height units" so x/y/z share one scale (MediaPipe's z uses the x scale).
@@ -103,7 +109,7 @@ class HandModel {
     const P = landmarks.map((l) => new THREE.Vector3(l.x * aspect, l.y, l.z * aspect * 0.75));
     const pinch = P[4].clone().add(P[8]).multiplyScalar(0.5);
     const palmLen = Math.hypot(P[0].x - P[9].x, P[0].y - P[9].y) || 1e-3;
-    const scale = PALM_WORLD / palmLen;
+    const scale = (PALM_WORLD * this.size) / palmLen;
     const k = this.fresh ? 1 : 0.35; // per-joint smoothing of the pose (position comes from the cursor)
     this.fresh = false;
 
