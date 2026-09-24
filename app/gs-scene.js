@@ -197,20 +197,13 @@ export class GoStopScene extends Stage {
   }
 
   frameCamera(aspect) {
-    const el = THREE.MathUtils.degToRad(66); // high enough that the far piles clear the HUD
+    const el = THREE.MathUtils.degToRad(56);
     const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
     const forWidth = (HW + 0.2) / (tanV * aspect);
     const forDepth = (HD * Math.sin(el) + 0.5) / (tanV * 0.94);
-    const dist = Math.max(forWidth, forDepth, 8) * 1.1;
+    const dist = Math.max(forWidth, forDepth, 8);
     this.camera.position.set(0, Math.sin(el) * dist, Math.cos(el) * dist + 0.9);
     this.camera.lookAt(0, 0, 0.5);
-  }
-
-  /** The picture sits a little low, so the far piles clear the HUD at the top-left. */
-  applyShift() {
-    const w = window.innerWidth, h = window.innerHeight;
-    this.camera.setViewOffset(w, h, -this.shift * w, -0.11 * h, w, h);
-    this.camera.updateProjectionMatrix();
   }
 
   // ---------- poses ----------
