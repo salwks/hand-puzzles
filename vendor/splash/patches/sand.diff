@@ -1,0 +1,209 @@
+diff --git a/render/bgColor.wgsl b/render/bgColor.wgsl
+index d9c0c75..4a35c3e 100644
+--- a/render/bgColor.wgsl
++++ b/render/bgColor.wgsl
+@@ -39,30 +39,89 @@ fn rayPlaneIntersection(rayOrigin: vec3f, rayDir: vec3f) -> vec3f {
+     return rayOrigin + t * rayDir;
+ }
+ 
++// ---- sand (hand-puzzles): a flat sandy bed under the water, a low berm around it, then dunes ----
++const SAND_BASE = 2.0; // the water's floor
++const POOL = vec4f(3., 3., 68., 39.); // water footprint: x0, z0, x1, z1
++const SUN = vec3f(-0.5, 0.62, 0.6);
++const SKY_ZENITH = vec3f(0.50, 0.68, 0.86);
++const SKY_HORIZON = vec3f(0.94, 0.90, 0.83);
++
++fn hash2(p: vec2f) -> f32 {
++    let q = fract(p * vec2f(123.34, 456.21));
++    let r = q + dot(q, q + 45.32);
++    return fract(r.x * r.y);
++}
++fn vnoise(p: vec2f) -> f32 {
++    let i = floor(p); let f = fract(p); let u = f * f * (3. - 2. * f);
++    return mix(mix(hash2(i), hash2(i + vec2f(1., 0.)), u.x), mix(hash2(i + vec2f(0., 1.)), hash2(i + vec2f(1., 1.)), u.x), u.y);
++}
++fn fbm(p0: vec2f) -> f32 {
++    var p = p0; var a = 0.5; var s = 0.;
++    for (var i = 0; i < 4; i++) { s += a * vnoise(p); p = p * 2.03 + vec2f(17.1, 9.7); a *= 0.5; }
++    return s;
++}
++fn poolDist(p: vec2f) -> f32 {
++    let c = (POOL.xy + POOL.zw) * 0.5; let h = (POOL.zw - POOL.xy) * 0.5;
++    let d = abs(p - c) - h;
++    return length(max(d, vec2f(0.))) + min(max(d.x, d.y), 0.);
++}
++fn sandHeight(p: vec2f) -> f32 {
++    let d = poolDist(p);
++    if (d <= 0.) { return SAND_BASE; }
++    let b = (d - 4.) / 4.;
++    let berm = 2.2 * exp(-b * b);
++    let dunes = max(fbm(p * 0.011 + vec2f(3.1, 7.7)) * 1.7 - 0.55, 0.) * 34. + 3. * sin(p.x * 0.035 + fbm(p * 0.02) * 5.);
++    return SAND_BASE + berm + smoothstep(6., 110., d) * max(dunes, 0.);
++}
++// wind ripples, fading out with distance so they don't shimmer
++fn ripples(p: vec2f, fade: f32) -> f32 {
++    return fade * 0.16 * sin(dot(p, vec2f(0.85, 0.52)) * 2.1 + fbm(p * 0.12) * 7.);
++}
++fn sandNormal(p: vec2f, dist: f32) -> vec3f {
++    let e = max(0.12, dist * 0.003);
++    let fade = 1. - smoothstep(60., 220., dist);
++    let hx = sandHeight(p + vec2f(e, 0.)) + ripples(p + vec2f(e, 0.), fade) - sandHeight(p - vec2f(e, 0.)) - ripples(p - vec2f(e, 0.), fade);
++    let hz = sandHeight(p + vec2f(0., e)) + ripples(p + vec2f(0., e), fade) - sandHeight(p - vec2f(0., e)) - ripples(p - vec2f(0., e), fade);
++    return normalize(vec3f(-hx, 2. * e, -hz));
++}
++fn skyColor(dir: vec3f) -> vec3f {
++    return mix(SKY_HORIZON, SKY_ZENITH, pow(clamp(dir.y, 0., 1.), 0.55));
++}
++fn sandColor(p: vec3f, n: vec3f, dist: f32) -> vec3f {
++    let grainFade = 1. - smoothstep(20., 90., dist);
++    var albedo = vec3f(0.86, 0.74, 0.55) * (0.88 + 0.22 * vnoise(p.xz * 0.35));
++    albedo *= 1. + grainFade * 0.14 * (hash2(floor(p.xz * 7.)) - 0.5);
++    let sun = normalize(SUN);
++    let diffuse = max(dot(n, sun), 0.);
++    let ambient = mix(vec3f(0.55, 0.50, 0.46), SKY_ZENITH, 0.5 + 0.5 * n.y) * 0.55;
++    let lit = albedo * (ambient + vec3f(1.0, 0.95, 0.86) * diffuse * 0.85);
++    return mix(lit, SKY_HORIZON, 1. - exp(-dist * 0.0035));
++}
++// ---- end sand ----
++
+ @fragment
+ fn fs(input: FragmentInput) -> @location(0) vec4f {
+     let cameraPos = getCameraPosition();
+-    let rayDirWorld = normalize((uniforms.invViewMatrix * vec4f(computeViewPosFromUVDepth(input.uv, 1.0), 0.)).xyz); // depth は適当
+-    let bgColor = textureSampleLevel(envmapTexture, textureSampler, rayDirWorld, 0.).rgb;
+-    if (abs(rayDirWorld.y) < 1e-6) { // y = 0 と交差しない
+-        return vec4f(bgColor, 1.);
+-    } 
+-
+-    let t = -cameraPos.y / rayDirWorld.y;
+-    if (t < 0) {
+-        return vec4f(bgColor, 1.);
++    let dir = normalize((uniforms.invViewMatrix * vec4f(computeViewPosFromUVDepth(input.uv, 1.0), 0.)).xyz);
++    // march the ray over the sand's heightfield
++    var t = 0.; var prev = 0.; var hit = false;
++    for (var i = 0; i < 180; i++) {
++        let q = cameraPos + t * dir;
++        let dy = q.y - sandHeight(q.xz);
++        if (dy < 0.) { hit = true; break; }
++        prev = t;
++        t += max(0.08, dy * 0.5);
++        if (t > 1200. || (dir.y > 0. && q.y > SAND_BASE + 60.)) { break; }
+     }
+-    let rayHitPos = cameraPos + t * rayDirWorld;
+-    let gridSize = 16.0;
+-    let lineThickness = 0.2; 
+-
+-    let isLineX = abs(fract(rayHitPos.x / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLineZ = abs(fract(rayHitPos.z / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLine = isLineX || isLineZ;
+-
+-    let boardColor = vec3(0.6); 
+-    let lineColor = vec3(0.5); 
+-    var finalColor = select(boardColor, lineColor, isLine);
+-    finalColor = select(bgColor, finalColor, abs(rayHitPos.x) < 3e2 && abs(rayHitPos.z) < 3e2);
+-    return vec4f(finalColor, 1.);
+-}
+\ No newline at end of file
++    // the sky, softened a touch toward the cubemap the water reflects (keeps its bindings in use)
++    let env = textureSampleLevel(envmapTexture, textureSampler, dir, 0.).rgb;
++    if (!hit) { return vec4f(mix(skyColor(dir), env, 0.15), 1.); }
++    // refine between the last point above the sand and the first below
++    var a = prev; var b = t;
++    for (var i = 0; i < 6; i++) {
++        let m = 0.5 * (a + b); let q = cameraPos + m * dir;
++        if (q.y > sandHeight(q.xz)) { a = m; } else { b = m; }
++    }
++    let hitPos = cameraPos + b * dir;
++    return vec4f(sandColor(hitPos, sandNormal(hitPos.xz, b), b), 1.);
++}
+diff --git a/render/fluid.wgsl b/render/fluid.wgsl
+index 9549271..0751936 100644
+--- a/render/fluid.wgsl
++++ b/render/fluid.wgsl
+@@ -51,22 +51,71 @@ fn calcReflactedTexCoord(surfacePosView: vec3f, refractionDirView: vec3f, thickn
+     return clamp(vec2f((1. + exitPosNdc.x) / 2., (1. - exitPosNdc.y) / 2.), vec2f(0.), vec2f(1.));
+ }
+ 
+-fn floorColor(surfacePos: vec3f, refractDir: vec3f) -> vec4f {
+-    let t = -surfacePos.y / refractDir.y;
+-    let rayHitPos = surfacePos + t * refractDir;
+-
+-    let gridSize = 16.0;
+-    let lineThickness = 0.2; 
+-
+-    let isLineX = abs(fract(rayHitPos.x / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLineZ = abs(fract(rayHitPos.z / gridSize - 0.5) - 0.5) < lineThickness / gridSize;
+-    let isLine = isLineX || isLineZ;
+-
+-    let boardColor = vec3(0.6); 
+-    let lineColor = vec3(0.5); 
+-    let finalColor = select(boardColor, lineColor, isLine);
++// ---- sand (hand-puzzles): a flat sandy bed under the water, a low berm around it, then dunes ----
++const SAND_BASE = 2.0; // the water's floor
++const POOL = vec4f(3., 3., 68., 39.); // water footprint: x0, z0, x1, z1
++const SUN = vec3f(-0.5, 0.62, 0.6);
++const SKY_ZENITH = vec3f(0.50, 0.68, 0.86);
++const SKY_HORIZON = vec3f(0.94, 0.90, 0.83);
++
++fn hash2(p: vec2f) -> f32 {
++    let q = fract(p * vec2f(123.34, 456.21));
++    let r = q + dot(q, q + 45.32);
++    return fract(r.x * r.y);
++}
++fn vnoise(p: vec2f) -> f32 {
++    let i = floor(p); let f = fract(p); let u = f * f * (3. - 2. * f);
++    return mix(mix(hash2(i), hash2(i + vec2f(1., 0.)), u.x), mix(hash2(i + vec2f(0., 1.)), hash2(i + vec2f(1., 1.)), u.x), u.y);
++}
++fn fbm(p0: vec2f) -> f32 {
++    var p = p0; var a = 0.5; var s = 0.;
++    for (var i = 0; i < 4; i++) { s += a * vnoise(p); p = p * 2.03 + vec2f(17.1, 9.7); a *= 0.5; }
++    return s;
++}
++fn poolDist(p: vec2f) -> f32 {
++    let c = (POOL.xy + POOL.zw) * 0.5; let h = (POOL.zw - POOL.xy) * 0.5;
++    let d = abs(p - c) - h;
++    return length(max(d, vec2f(0.))) + min(max(d.x, d.y), 0.);
++}
++fn sandHeight(p: vec2f) -> f32 {
++    let d = poolDist(p);
++    if (d <= 0.) { return SAND_BASE; }
++    let b = (d - 4.) / 4.;
++    let berm = 2.2 * exp(-b * b);
++    let dunes = max(fbm(p * 0.011 + vec2f(3.1, 7.7)) * 1.7 - 0.55, 0.) * 34. + 3. * sin(p.x * 0.035 + fbm(p * 0.02) * 5.);
++    return SAND_BASE + berm + smoothstep(6., 110., d) * max(dunes, 0.);
++}
++// wind ripples, fading out with distance so they don't shimmer
++fn ripples(p: vec2f, fade: f32) -> f32 {
++    return fade * 0.16 * sin(dot(p, vec2f(0.85, 0.52)) * 2.1 + fbm(p * 0.12) * 7.);
++}
++fn sandNormal(p: vec2f, dist: f32) -> vec3f {
++    let e = max(0.12, dist * 0.003);
++    let fade = 1. - smoothstep(60., 220., dist);
++    let hx = sandHeight(p + vec2f(e, 0.)) + ripples(p + vec2f(e, 0.), fade) - sandHeight(p - vec2f(e, 0.)) - ripples(p - vec2f(e, 0.), fade);
++    let hz = sandHeight(p + vec2f(0., e)) + ripples(p + vec2f(0., e), fade) - sandHeight(p - vec2f(0., e)) - ripples(p - vec2f(0., e), fade);
++    return normalize(vec3f(-hx, 2. * e, -hz));
++}
++fn skyColor(dir: vec3f) -> vec3f {
++    return mix(SKY_HORIZON, SKY_ZENITH, pow(clamp(dir.y, 0., 1.), 0.55));
++}
++fn sandColor(p: vec3f, n: vec3f, dist: f32) -> vec3f {
++    let grainFade = 1. - smoothstep(20., 90., dist);
++    var albedo = vec3f(0.86, 0.74, 0.55) * (0.88 + 0.22 * vnoise(p.xz * 0.35));
++    albedo *= 1. + grainFade * 0.14 * (hash2(floor(p.xz * 7.)) - 0.5);
++    let sun = normalize(SUN);
++    let diffuse = max(dot(n, sun), 0.);
++    let ambient = mix(vec3f(0.55, 0.50, 0.46), SKY_ZENITH, 0.5 + 0.5 * n.y) * 0.55;
++    let lit = albedo * (ambient + vec3f(1.0, 0.95, 0.86) * diffuse * 0.85);
++    return mix(lit, SKY_HORIZON, 1. - exp(-dist * 0.0035));
++}
++// ---- end sand ----
+ 
+-    return vec4f(finalColor, f32(abs(rayHitPos.x) < 3e2 && abs(rayHitPos.z) < 3e2));
++fn floorColor(surfacePos: vec3f, refractDir: vec3f) -> vec4f {
++    let t = (SAND_BASE - surfacePos.y) / refractDir.y;
++    let hitPos = surfacePos + t * refractDir;
++    let camDist = length(hitPos - (uniforms.invViewMatrix * vec4f(0., 0., 0., 1.)).xyz);
++    return vec4f(sandColor(hitPos, sandNormal(hitPos.xz, camDist), camDist), 1.);
+ }
+ 
+ @fragment

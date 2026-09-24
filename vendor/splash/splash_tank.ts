@@ -30,26 +30,22 @@ export interface Tank {
   box: number[]
 }
 
-/** A bathroom around the tank: white tiles with grey grout on every wall, a plain ceiling. */
-function tileFace(size: number, plain = false): HTMLCanvasElement {
+/** The sky and sand the water reflects: a cubemap face ('side' fades sky → horizon haze → sand). */
+function skyFace(size: number, kind: 'side' | 'up' | 'down'): HTMLCanvasElement {
   const c = document.createElement('canvas')
   c.width = c.height = size
   const g = c.getContext('2d')!
-  g.fillStyle = plain ? '#ecebe7' : '#f1f1ee'
+  if (kind === 'up') g.fillStyle = '#80add8'
+  else if (kind === 'down') g.fillStyle = '#c9ae84'
+  else {
+    const grad = g.createLinearGradient(0, 0, 0, size)
+    grad.addColorStop(0, '#8cb4da')
+    grad.addColorStop(0.46, '#efe6d6')
+    grad.addColorStop(0.52, '#d9c29a')
+    grad.addColorStop(1, '#c9ae84')
+    g.fillStyle = grad
+  }
   g.fillRect(0, 0, size, size)
-  if (plain) return c
-  const n = 8, t = size / n
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-    const v = 236 + Math.round(Math.random() * 10) - ((i + j) % 2 ? 6 : 0)
-    g.fillStyle = `rgb(${v},${v},${v - 2})`
-    g.fillRect(i * t + 2, j * t + 2, t - 4, t - 4)
-  }
-  g.strokeStyle = '#b9bcbd'
-  g.lineWidth = 4
-  for (let i = 0; i <= n; i++) {
-    g.beginPath(); g.moveTo(i * t, 0); g.lineTo(i * t, size); g.stroke()
-    g.beginPath(); g.moveTo(0, i * t); g.lineTo(size, i * t); g.stroke()
-  }
   return c
 }
 
@@ -69,8 +65,9 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   const format = navigator.gpu.getPreferredCanvasFormat()
   context.configure({ device, format })
 
-  // environment cubemap for reflections: the tiled bathroom (order +X, -X, +Y, -Y, +Z, -Z)
-  const bitmaps = await Promise.all([false, false, true, false, false, false].map((plain) => createImageBitmap(tileFace(512, plain))))
+  // environment cubemap for reflections: sky over sand (order +X, -X, +Y, -Y, +Z, -Z)
+  const faces = ['side', 'side', 'up', 'down', 'side', 'side'] as const
+  const bitmaps = await Promise.all(faces.map((kind) => createImageBitmap(skyFace(256, kind))))
   const cubemap = device.createTexture({
     dimension: '2d', size: [bitmaps[0].width, bitmaps[0].height, 6], format: 'rgba8unorm',
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
