@@ -35,7 +35,7 @@ const josa = (word, withFinal, without) => {
 
 const state = {
   players: [], round: 0, dealer: 0, deck: [], pot: 0, carry: 0,
-  phase: 'idle', turn: null, currentBet: 0, raises: 0,
+  phase: 'idle', turn: null, currentBet: 0, raises: 0, street: 0, // street 0: after the first card, 1: after the second
   sleeve: null, drag: null, hover: null, read: new Set(),
   fakePending: false, standoff: null, stats: { best: START_MONEY, sleights: 0 },
 };
@@ -109,23 +109,36 @@ async function startRound() {
   render();
   await sleep(500);
 
-  const order = [];
-  for (let k = 1; k <= 4; k++) { const p = state.players[(state.dealer + k) % 4]; if (p.inRound) order.push(p); }
-  for (let pass = 0; pass < 2; pass++) {
-    for (const p of order) {
-      if (p.seat === 0 && state.dealer === 0) continue; // the player deals to themself by hand
-      deal(p, state.deck.shift());
-      await sleep(170);
-    }
+  state.street = 0;
+  dealStreet();
+}
+
+/** Deal one card to everyone still in, starting left of the dealer; the player deals their own when dealing. */
+async function dealStreet() {
+  state.phase = 'deal';
+  render();
+  for (let k = 1; k <= 4; k++) {
+    const p = state.players[(state.dealer + k) % 4];
+    if (!p.inRound || p.folded || (p.seat === 0 && state.dealer === 0)) continue;
+    deal(p, state.deck.shift());
+    await sleep(220);
   }
-  if (state.dealer === 0) {
+  if (state.dealer === 0 && !me().folded) {
     state.phase = 'selfdeal';
     layDeck();
     render();
     return;
   }
-  await sleep(400);
+  await sleep(350);
   beginBetting();
+}
+
+/** A betting round is over: second card, or the showdown. */
+function streetDone() {
+  if (state.street === 0) {
+    state.street = 1;
+    dealStreet();
+  } else reveal();
 }
 
 function deal(p, card, { from = null } = {}) {
@@ -144,7 +157,8 @@ function beginBetting() {
   state.currentBet = 0;
   state.raises = 0;
   for (const p of state.players) { p.bet = 0; p.acted = false; }
-  state.turn = state.dealer;
+  // 선 bets first: start the search one seat before the dealer.
+  state.turn = (state.dealer + 3) % 4;
   nextTurn();
 }
 
@@ -153,7 +167,7 @@ function nextTurn() {
   const alive = live();
   if (alive.length <= 1) return finish(alive);
   const needs = (p) => !p.allin && (!p.acted || p.bet < state.currentBet);
-  if (!alive.some(needs)) return reveal();
+  if (!alive.some(needs)) return streetDone();
   for (let k = 1; k <= 4; k++) {
     const p = state.players[(state.turn + k) % 4];
     if (p.inRound && !p.folded && needs(p)) { state.turn = p.seat; break; }
@@ -184,6 +198,13 @@ function act(p, action) {
     state.raises++;
     for (const o of state.players) if (o !== p) o.acted = false;
     p.note = '따당';
+  } else if (action === 'half') {
+    const target = state.currentBet + Math.max(ANTE, Math.round(state.pot / 2 / 10) * 10);
+    pay(p, target - p.bet);
+    state.currentBet = Math.max(state.currentBet, p.bet);
+    state.raises++;
+    for (const o of state.players) if (o !== p) o.acted = false;
+    p.note = '하프';
   } else if (action === 'bet') {
     pay(p, ANTE);
     state.currentBet = p.bet;
@@ -199,12 +220,14 @@ function act(p, action) {
 }
 
 function aiAct(p) {
-  const hand = handOf(p.cards);
-  const s = strength(hand) + (Math.random() < p.bluff ? 0.4 : 0);
+  const c = p.cards[0];
+  // One card: 광 and 10 promise 광땡/장땡, 1 promises 알리/독사/구삥/장삥.
+  const base = p.cards.length < 2 ? (c.kind === 'gwang' ? 0.75 : c.month === 10 ? 0.62 : c.month === 1 ? 0.58 : 0.25 + c.month * 0.03) : strength(handOf(p.cards));
+  const s = base + (Math.random() < p.bluff ? 0.4 : 0);
   const toCall = state.currentBet - p.bet;
   const pressure = toCall / (p.money + p.bet + 1);
   let a;
-  if (s > 0.82 && state.raises < 3 && Math.random() < p.aggr + 0.25) a = 'raise';
+  if (s > 0.82 && state.raises < 3 && Math.random() < p.aggr + 0.25) a = Math.random() < 0.5 ? 'half' : 'raise';
   else if (toCall === 0) a = s > 0.6 && Math.random() < p.aggr ? 'bet' : 'call';
   else if (s > 0.45 + pressure * 0.6) a = 'call';
   else if (toCall <= ANTE * 2 && s > 0.25) a = 'call';
@@ -419,7 +442,7 @@ function takeDealt(d) {
   }
   layDeck();
   if (what && maybeAccuse(card, what === 'bottom', what, witness)) return;
-  if (me().cards.length >= 2) setTimeout(beginBetting, 400);
+  if (me().cards.length >= state.street + 1) { state.phase = 'deal'; layDeck(); setTimeout(beginBetting, 400); }
   render();
 }
 
@@ -575,7 +598,7 @@ function endStandoff(message) {
   if (message) toast(message, 3400);
   if (me().money <= 0) return gameOver('파산', `결판에서 전재산을 잃었습니다.`);
   state.phase = so.prev === 'standoff' ? 'bet' : so.prev;
-  if (state.phase === 'selfdeal' && me().cards.length >= 2) return beginBetting();
+  if (state.phase === 'selfdeal' && me().cards.length >= state.street + 1) { state.phase = 'deal'; layDeck(); return beginBetting(); }
   if (state.phase === 'bet') { if (live().length <= 1) return finish(live()); nextTurn(); }
   render();
 }
@@ -588,6 +611,7 @@ function banner(html, tone = '') {
 }
 
 function render(full = true) {
+  if (!state.players.length) return; // not at the table yet
   const m = me();
   $('#money').textContent = fmt(m.money);
   $('#pot').textContent = fmt(state.pot);
@@ -598,10 +622,11 @@ function render(full = true) {
   $('#b-bet').hidden = !(myTurn && state.currentBet === 0);
   $('#b-call').textContent = toCall > 0 ? `콜 · ${fmt(Math.min(toCall, m.money))}` : '체크';
   $('#b-raise').textContent = `따당 · ${fmt(Math.max(state.currentBet * 2, ANTE * 2) - m.bet)}`;
-  for (const id of ['#b-call', '#b-raise', '#b-die']) $(id).disabled = !myTurn;
-  $('#b-raise').disabled = !myTurn || state.raises >= 3;
+  $('#b-half').textContent = `하프 · ${fmt(state.currentBet - m.bet + Math.max(ANTE, Math.round(state.pot / 2 / 10) * 10))}`;
+  for (const id of ['#b-call', '#b-raise', '#b-half', '#b-die']) $(id).disabled = !myTurn;
+  $('#b-raise').disabled = $('#b-half').disabled = !myTurn || state.raises >= 3;
   $('#b-next').hidden = state.phase !== 'done';
-  for (const id of ['#b-call', '#b-raise', '#b-die']) $(id).hidden = state.phase === 'done';
+  for (const id of ['#b-call', '#b-raise', '#b-half', '#b-die']) $(id).hidden = state.phase === 'done';
   const dealing = state.phase === 'selfdeal';
   $('#sk-bottom').dataset.state = dealing ? 'ready' : 'off';
   $('#sk-bottom .st').textContent = dealing ? '준비됨' : '선일 때';
@@ -620,9 +645,9 @@ function updateBanner() {
   else if (d?.kind === 'deal') { tone = d.bottom ? 'target' : 'held'; html = d.bottom ? '<b>밑장</b>을 들었습니다. 내 자리에 놓으면 밑장빼기, 더미에 되돌리면 <b>쓰는 척</b>.' : '내 자리(앞쪽)에 놓으세요.'; }
   else if (d?.kind === 'peek') { tone = 'held'; html = '천천히 들어 올리세요 — 끝까지 들면 패가 보입니다.'; }
   else if (d?.kind === 'carry') { tone = 'target'; html = `<b>소매</b>(오른쪽 검은 천)에 ${SWAP_MS / 1000}초 안에 놓으면 바꿔치기. 판 가운데로 던지면 다이.`; }
-  else if (state.phase === 'selfdeal') { tone = 'hover'; html = `당신이 선입니다. 더미 <b>위</b>를 ${pinch} 내 앞에 두 장 — 튀어나온 <b>밑장</b>을 집으면 밑장빼기.`; }
+  else if (state.phase === 'selfdeal') { tone = 'hover'; html = `당신이 선입니다. 더미 <b>위</b>를 ${pinch} 내 앞에 ${state.street ? '둘째' : '첫'} 장 — 튀어나온 <b>밑장</b>을 집으면 밑장빼기.`; }
   else if (state.phase === 'bet' && state.turn === 0) { tone = 'hover'; html = `당신 차례. 칩을 판 가운데로 밀면 ${state.currentBet > me().bet ? '콜' : '삥'}, 패를 가운데로 던지면 다이.`; }
-  else if (state.phase === 'bet') html = `${state.players[state.turn].name} 생각 중…`;
+  else if (state.phase === 'bet') html = `${state.street ? '둘째' : '첫'} 장 베팅 — ${state.players[state.turn].name} 생각 중…`;
   else if (state.phase === 'deal') html = '패를 돌리는 중…';
   else html = '…';
   if (html === $('#banner').dataset.html) return;
@@ -688,6 +713,7 @@ shell.attach({
 $('#b-bet').addEventListener('click', () => playerBet('bet'));
 $('#b-call').addEventListener('click', () => playerBet('call'));
 $('#b-raise').addEventListener('click', () => playerBet('raise'));
+$('#b-half').addEventListener('click', () => playerBet('half'));
 $('#b-die').addEventListener('click', () => playerBet('die'));
 $('#b-next').addEventListener('click', () => startRound());
 $('#so-admit').addEventListener('click', () => soDecide('admit'));
@@ -696,7 +722,8 @@ $('#so-all').addEventListener('click', () => soDecide('all'));
 $('#rv-back').addEventListener('click', () => endStandoff(null));
 $('#over-again').addEventListener('click', newGame);
 
-newGame();
+// The first round starts only once the player is at the table.
+for (const id of ['#btn-start-mouse', '#btn-start-cam']) $(id).addEventListener('click', () => { if (!state.round) newGame(); }, { once: true });
 
 // Debug / test handle
 window.__sutda = { state, scene, act, startStandoff, soDecide, hand: shell.injectHandFrame, startRound, handOf };
