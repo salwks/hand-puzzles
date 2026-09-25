@@ -215,6 +215,9 @@ export class GoStopScene extends Stage {
   /** The top of the deck, turned face up and lifted towards the player. */
   revealPose() { return pose(0, 1.1, 0.8, 0.9, 0, 0); }
 
+  /** A card held up off the table at (x, y, z), leaning back by `tilt`. */
+  standPose(x, y, z, tilt = 0.45, s = 1) { return pose(x, y, z, tilt, 0, 0, s); }
+
   floorPose(slot, k, id) {
     const [x, z] = SLOTS[slot];
     return pose(x + k * 0.16, CT * (k + 0.5) + 0.001, z + k * 0.09, 0, jitter(id, 0.1), 0);

@@ -5,7 +5,7 @@ import {
   CARDS, monthOf, cardName, newRound as dealRound, playTurn, decide, settle, score, specials,
   rankHand, shouldGo, bestPick, matchesFor, WIN_MIN, goPoints, eul,
 } from './gs-logic.js';
-import { GoStopScene, cardSrc, SLOT_COUNT } from './gs-scene.js';
+import { GoStopScene, cardSrc, SLOT_COUNT, CT } from './gs-scene.js';
 import { createShell } from './shell.js';
 import { sfx, unlockSound, isMuted, setMuted } from './sound.js';
 import { COLOR } from './stage.js';
@@ -32,7 +32,7 @@ const { bigSay, specialFx, victoryFx } = createFx(scene);
 const state = {
   money: [START_MONEY, START_MONEY, START_MONEY], dealer: 0, round: 1, nagari: 0, started: false,
   st: null, phase: 'idle', slots: {}, reserved: new Set(),
-  wait: null, drag: null, hover: null, trail: [], options: [], say: [null, null, null],
+  wait: null, drag: null, hover: null, trail: [], options: [], chooseSpots: null, pair: null, say: [null, null, null],
   gesture: { kind: null, since: 0 },
 };
 
@@ -82,7 +82,8 @@ function layoutAll({ instant = false, skip = null } = {}) {
     if (id === skip) continue;
     const m = monthOf(id);
     count[m] = (count[m] ?? 0);
-    scene.place(id, scene.floorPose(slotOf(m), count[m]++, id), { ...o, dur: 0.35 });
+    const paired = state.pair && (id === state.pair.pick || id === state.pair.card);
+    scene.place(id, floorSpot(id, paired ? 0 : count[m]++), { ...o, dur: 0.35 });
   }
   for (let p = 0; p < 3; p++) {
     const piles = { gwang: 0, yeol: 0, tti: 0, pi: 0 };
@@ -158,6 +159,7 @@ async function runTurn() {
   if (p === 0) await playerTurn();
   else await aiTurn(p);
   scene.clearGlows();
+  state.pair = null;
   layoutAll();
   render();
   if (st.pending) {
@@ -185,10 +187,14 @@ function makeAnimator(p, drop) {
       const ids = ev.type === 'bomb' ? ev.cards : [ev.card];
       const strength = p === 0 ? drop?.strength ?? 0.4 : 0.35 + Math.random() * 0.3;
       if (ev.type === 'bomb') { bigSay('폭탄!'); sfx('hit', { vol: 0.8 }); }
+      if (ev.type === 'play' && ev.target !== null && st.floor.filter((x) => monthOf(x) === monthOf(ev.card) && x !== ev.card).length === 2) {
+        state.pair = { pick: ev.target, card: ev.card };
+        scene.place(ev.target, floorSpot(ev.target, 0), { dur: 0.25, arc: 0 });
+      }
       for (const [i, id] of ids.entries()) {
         const m = monthOf(id);
         const pile = st.floor.filter((x) => monthOf(x) === m && !ids.includes(x)).length + i;
-        const target = scene.floorPose(slotOf(m), pile, id);
+        const target = floorSpot(id, pile);
         await new Promise((resolve) => scene.slam(id, target, strength, () => { slapSound(p, strength); resolve(); }));
       }
       await sleep(p === 0 ? 150 : 250);
@@ -214,6 +220,7 @@ function makeAnimator(p, drop) {
       for (const id of ev.cards) scene.setGlow(id, { color: COLOR.hint, intensity: 0.6, pulse: false });
       await sleep(260);
       state.reserved.clear();
+      state.pair = null;
       layoutAll();
       await sleep(380);
     } else if (ev.type === 'lay') {
@@ -221,6 +228,7 @@ function makeAnimator(p, drop) {
       layoutAll();
     } else if (ev.type === 'ppeok') {
       state.reserved.clear();
+      state.pair = null;
       bigSay('뻑!');
       sfx('lose', { vol: 0.5, jitter: 0 });
       layoutAll();
@@ -312,29 +320,48 @@ function playerChoose(options, held = null) {
   state.phase = 'choose';
   state.options = options;
   const base = scene.card(options[0]).root.position;
-  options.forEach((id, i) => {
-    const t = scene.revealPose();
-    t.p.set(base.x + (i - (options.length - 1) / 2) * 1.0, 0.55, base.z + 0.15);
-    t.s = 1.15;
-    scene.place(id, t, { dur: 0.3, arc: 0.1 });
-    scene.setGlow(id, { color: COLOR.hover, intensity: 0.3, pulse: true }); // faint, so the art stays readable
-  });
-  if (held !== null) {
-    const t = scene.revealPose();
-    t.p.set(base.x, 1.35, base.z - 0.35);
-    scene.place(held, t, { dur: 0.25, arc: 0.05 });
-  }
+  const gap = 1.3;
+  // the options stand up side by side over their slot, the played card waits in front of them
+  state.chooseSpots = options.map((id, i) => scene.standPose(base.x + (i - (options.length - 1) / 2) * gap, 0.5, base.z, 0.45, 1.1));
+  options.forEach((id, i) => scene.place(id, state.chooseSpots[i], { dur: 0.3, arc: 0.1 }));
+  if (held !== null) scene.place(held, scene.standPose(base.x, 0.2, base.z + 1.05, 0.3, 0.8), { dur: 0.25, arc: 0.05 });
   sfx('fan', { vol: 0.4 });
   render();
   return new Promise((resolve) => { state.wait = { kind: 'choose', resolve }; }).then((id) => {
     state.wait = null;
     for (const x of options) scene.setGlow(x, null);
     state.options = [];
+    state.chooseSpots = null;
     state.phase = 'busy';
-    layoutAll(); // the fanned cards settle back into their pile
+    if (held !== null) state.pair = { pick: id, card: held };
+    layoutAll(); // the chosen card steps out of its pile to take the played card; the other settles back
     render();
     return id;
   });
+}
+
+/** The hovered option rises and lights; the other stays plain so both stay readable. */
+function showChooseHover() {
+  state.options.forEach((id, i) => {
+    const on = id === state.hover, t = state.chooseSpots[i];
+    scene.place(id, { ...t, p: t.p.clone().add({ x: 0, y: on ? 0.14 : 0, z: 0 }) }, { dur: 0.15, arc: 0 });
+    scene.setGlow(id, on ? { color: COLOR.hover, intensity: 0.45, pulse: false } : null);
+  });
+}
+
+/**
+ * Floor pose of a card. The pair about to be taken (the card a player chose, with the card played
+ * onto it) sits a little apart from the month's other card, so it's plain which one goes.
+ */
+function floorSpot(id, k) {
+  const m = monthOf(id), pr = state.pair;
+  if (pr && monthOf(pr.pick) === m && (id === pr.pick || id === pr.card)) {
+    const t = scene.floorPose(slotOf(m), 1, pr.pick);
+    t.p.x += 0.14; t.p.z += 0.36;
+    if (id === pr.card) { t.p.x += 0.24; t.p.z += 0.12; t.p.y += CT; }
+    return t;
+  }
+  return scene.floorPose(slotOf(m), k, id);
 }
 
 // ---------- AI ----------
@@ -568,6 +595,7 @@ function updateHover(x, y) {
   if (h !== state.hover) {
     state.hover = h;
     if (state.phase === 'play') { applyGlows(); layoutHand(0); }
+    else if (state.phase === 'choose') showChooseHover();
   }
 }
 
