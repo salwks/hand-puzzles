@@ -16,6 +16,11 @@ export interface TankOptions {
   elevation?: number
   /** Render resolution relative to the canvas's CSS size (Splash uses 0.7). */
   resolution?: number
+  /**
+   * Sky box around the water: a folder URL holding posx/negx/posy/negy/posz/negz.jpg. Defaults
+   * to three.js's example "Bridge2" (Emil Persson, aka Humus: free with credit).
+   */
+  sky?: string
 }
 
 export interface Tank {
@@ -51,8 +56,13 @@ function roomFace(size: number, kind: 'side' | 'up' | 'down'): HTMLCanvasElement
 export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): Promise<Tank> {
   // the glass tank's proportions (4 : 1.05 : 2.4), with a little headroom for splashes,
   // filled to about three quarters of the rim
-  const particleCount = opts.particles ?? 55000
-  const box = opts.box ?? [72, 22, 43]
+  const particleCount = opts.particles ?? 110000
+  // the tank's footprint is fixed (4 : 2.4); it's as tall as the water needs, plus room to slosh
+  const spacing = 0.9
+  const X = opts.box?.[0] ?? 72, Z = opts.box?.[2] ?? 43
+  const perLayer = (Math.floor((X - 6) / spacing) + 1) * (Math.floor((Z - 6) / spacing) + 1)
+  const fillH = 3 + Math.ceil(particleCount / perLayer) * spacing
+  const box = opts.box ?? [X, Math.ceil(fillH + 9), Z]
   const res = opts.resolution ?? 0.7
 
   const adapter = await navigator.gpu.requestAdapter()
@@ -66,9 +76,21 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   const format = navigator.gpu.getPreferredCanvasFormat()
   context.configure({ device, format })
 
-  // environment cubemap for reflections: a white room (order +X, -X, +Y, -Y, +Z, -Z)
-  const faces = ['side', 'side', 'up', 'down', 'side', 'side'] as const
-  const bitmaps = await Promise.all(faces.map((kind) => createImageBitmap(roomFace(64, kind))))
+  // environment cubemap: the sky box the water sits in and reflects (order +X, -X, +Y, -Y, +Z, -Z);
+  // a plain white room if it can't be loaded
+  const sky = opts.sky ?? 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r165/examples/textures/cube/Bridge2/'
+  let bitmaps: ImageBitmap[]
+  try {
+    bitmaps = await Promise.all(['posx', 'negx', 'posy', 'negy', 'posz', 'negz'].map(async (f) => {
+      const r = await fetch(`${sky}${f}.jpg`)
+      if (!r.ok) throw new Error(`sky ${f}: ${r.status}`)
+      return createImageBitmap(await r.blob())
+    }))
+  } catch (e) {
+    console.warn('sky box unavailable, using a white room', e)
+    const faces = ['side', 'side', 'up', 'down', 'side', 'side'] as const
+    bitmaps = await Promise.all(faces.map((kind) => createImageBitmap(roomFace(64, kind))))
+  }
   const cubemap = device.createTexture({
     dimension: '2d', size: [bitmaps[0].width, bitmaps[0].height, 6], format: 'rgba8unorm',
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
@@ -105,7 +127,6 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   // Start from a still pool filling the floor, not Splash's collapsing block.
   ;(sim as any).initDambreak = function (initBox: number[], n: number) {
     const buf = new ArrayBuffer(mlsmpmParticleStructSize * this.maxParticleCount)
-    const spacing = 0.9
     this.numParticles = 0
     for (let j = 3; j < initBox[1] - 3 && this.numParticles < n; j += spacing) {
       for (let i = 3; i < initBox[0] - 3 && this.numParticles < n; i += spacing) {
@@ -132,7 +153,7 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
     const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight)
     const half = (box[0] - 7) / 2 / 0.9
     const distance = half / (Math.tan(fov / 2) * aspect) + (box[2] / 2 - 3)
-    camera.reset(distance, [box[0] / 2, box[1] * 0.42, box[2] / 2], fov, 0.7)
+    camera.reset(distance, [box[0] / 2, fillH * 0.5, box[2] / 2], fov, 0.7)
     camera.currentXtheta = 0 // face the long side (Splash looks down the x axis)
     camera.currentYtheta = -((opts.elevation ?? 10) * Math.PI) / 180
     camera.recalculateView()
@@ -164,7 +185,7 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
     const enc = device.createCommandEncoder()
     sim.execute(enc, [camera.currentHoverX / canvas.clientWidth, camera.currentHoverY / canvas.clientHeight],
       camera.calcMouseVelocity().map((v: number) => v * 0.6), 15, false, 0.4 * 0.8, true, dg) // a hand sweeps faster than a mouse hover: 60% of Splash's push
-    renderer.execute(context, enc, sim.numParticles, false, [140 / 255, 220 / 255, 240 / 255], 0.7)
+    renderer.execute(context, enc, sim.numParticles, false, [140 / 255, 220 / 255, 240 / 255], 0.18) // low absorption: clear water
     device.queue.submit([enc.finish()])
     camera.setNewPrevMouseCoord()
   }

@@ -1,5 +1,5 @@
 diff --git a/render/bgColor.wgsl b/render/bgColor.wgsl
-index d9c0c75..7b999a6 100644
+index d9c0c75..5505824 100644
 --- a/render/bgColor.wgsl
 +++ b/render/bgColor.wgsl
 @@ -41,28 +41,7 @@ fn rayPlaneIntersection(rayOrigin: vec3f, rayDir: vec3f) -> vec3f {
@@ -32,12 +32,12 @@ index d9c0c75..7b999a6 100644
 -    return vec4f(finalColor, 1.);
 -}
 \ No newline at end of file
-+    // plain white behind the water (hand-puzzles); its bindings are kept for the shared layout
-+    let env = textureSampleLevel(envmapTexture, textureSampler, vec3f(0., 1., 0.), 0.).rgb;
-+    return vec4f(max(env + uniforms.texelSize.x, vec3f(1.)), 1.); // (both bindings must stay in use)
++    // the sky box all round (hand-puzzles): no floor, the scene's own ground is in the cube
++    let rayDirWorld = normalize((uniforms.invViewMatrix * vec4f(computeViewPosFromUVDepth(input.uv, 1.0), 0.)).xyz);
++    return vec4f(textureSampleLevel(envmapTexture, textureSampler, rayDirWorld, 0.).rgb, 1.);
 +}
 diff --git a/render/fluid.wgsl b/render/fluid.wgsl
-index 9549271..57356b9 100644
+index 9549271..816eb7e 100644
 --- a/render/fluid.wgsl
 +++ b/render/fluid.wgsl
 @@ -52,21 +52,7 @@ fn calcReflactedTexCoord(surfacePosView: vec3f, refractionDirView: vec3f, thickn
@@ -59,7 +59,7 @@ index 9549271..57356b9 100644
 -    let finalColor = select(boardColor, lineColor, isLine);
 -
 -    return vec4f(finalColor, f32(abs(rayHitPos.x) < 3e2 && abs(rayHitPos.z) < 3e2));
-+    return vec4f(1., 1., 1., 1.); // a plain white floor under the water (hand-puzzles)
++    return vec4f(0.); // no floor under the water (hand-puzzles): refraction sees the sky box
  }
  
  @fragment
