@@ -1,10 +1,17 @@
-// 궤도 방어 sound: synthesised in Web Audio (lasers, explosions and alarms are electronic sounds
-// anyway), sharing the site's mute switch. The jingles (start, win, game over) come from the
-// recorded banks in sound.js.
+// 궤도 방어 sound: recorded sci-fi effects (Kenney "Sci-fi Sounds" and "Digital Audio", CC0,
+// assets/sfx/orbit/) played through Web Audio — each call picks a take and nudges its pitch
+// and level so rapid fire never sounds like one sample on repeat. A low engine hum loops under
+// play. Shares the site's mute switch.
 import { isMuted } from './sound.js';
 
-let ctx = null, out = null, noise = null;
-let lastLaser = 0;
+const BANKS = {
+  laser: 5, bullet: 5, hit: 5, explode: 5, boom: 2, shield: 2, emp: 1, empty: 1, pickup: 3,
+  charge: 2, lock: 1, blink: 5, wave: 1, alarm: 1, phase: 1, start: 1, win: 1, over: 1, hum: 1,
+};
+
+let ctx = null, out = null, humGain = null, humSrc = null;
+const buffers = {};
+const last = {};
 
 export function unlockOrbitSound() {
   if (ctx) { ctx.resume(); return; }
@@ -12,98 +19,96 @@ export function unlockOrbitSound() {
   if (!AC) return;
   ctx = new AC();
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -16; comp.ratio.value = 4;
+  comp.threshold.value = -14; comp.ratio.value = 4;
   out = ctx.createGain();
-  out.gain.value = 0.7;
+  out.gain.value = 0.85;
   out.connect(comp).connect(ctx.destination);
-  // one second of white noise, reused for every burst
-  noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-  const d = noise.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-}
-
-const ok = () => ctx && !isMuted();
-
-function env(g, t, a, peak, dcy) {
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(peak, t + a);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + a + dcy);
-}
-function panner(pan) {
-  const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
-  if (p.pan) p.pan.value = Math.max(-1, Math.min(1, pan));
-  p.connect(out);
-  return p;
-}
-function tone({ type = 'sine', f0, f1 = f0, dur, vol = 0.2, pan = 0, delay = 0, attack = 0.004 }) {
-  const t = ctx.currentTime + delay;
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = type;
-  o.frequency.setValueAtTime(f0, t);
-  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-  env(g, t, attack, vol, dur);
-  o.connect(g).connect(panner(pan));
-  o.start(t); o.stop(t + attack + dur + 0.05);
-}
-function hiss({ dur, vol = 0.3, from = 4000, to = 200, q = 0.8, pan = 0, delay = 0, type = 'lowpass', attack = 0.004 }) {
-  const t = ctx.currentTime + delay;
-  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-  s.buffer = noise; s.loop = true;
-  f.type = type; f.Q.value = q;
-  f.frequency.setValueAtTime(from, t);
-  f.frequency.exponentialRampToValueAtTime(Math.max(30, to), t + dur);
-  env(g, t, attack, vol, dur);
-  s.connect(f).connect(g).connect(panner(pan));
-  s.start(t, Math.random() * 0.5); s.stop(t + attack + dur + 0.05);
+  for (const [bank, n] of Object.entries(BANKS)) {
+    for (let i = 0; i < n; i++) {
+      const name = n > 1 ? `${bank}${i}` : bank;
+      fetch(`assets/sfx/orbit/${name}.m4a`)
+        .then((r) => r.arrayBuffer())
+        .then((b) => ctx.decodeAudioData(b))
+        .then((buf) => { (buffers[bank] ??= []).push(buf); if (bank === 'hum' && humWanted) hum(true); })
+        .catch(() => {});
+    }
+  }
 }
 
 /** Pan for a logic x position (the arena spans about ±12). */
 export const panOf = (x) => Math.max(-0.8, Math.min(0.8, x / 14));
 
+/**
+ * Play a take from a bank. `gap` (seconds) drops calls that come too soon after the last one,
+ * so a wave of hits doesn't pile up into a roar.
+ */
+function play(bank, { vol = 1, pan = 0, rate = 1, delay = 0, jitter = 0.06, gap = 0 } = {}) {
+  if (!ctx || isMuted()) return;
+  const takes = buffers[bank];
+  if (!takes?.length) return;
+  const now = ctx.currentTime;
+  if (gap && now - (last[bank] ?? -1) < gap) return;
+  last[bank] = now;
+  const src = ctx.createBufferSource();
+  src.buffer = takes[Math.floor(Math.random() * takes.length)];
+  src.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * jitter);
+  const g = ctx.createGain();
+  g.gain.value = vol * (1 - Math.random() * jitter);
+  let node = src.connect(g);
+  if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; node = node.connect(p); }
+  node.connect(out);
+  src.start(now + delay);
+}
+
+let humWanted = false;
+/** The ship's engine, a quiet loop under play. */
+function hum(on) {
+  humWanted = on;
+  if (!ctx) return;
+  if (on && !humSrc && buffers.hum?.length) {
+    humGain = ctx.createGain();
+    humGain.gain.value = 0;
+    humGain.gain.linearRampToValueAtTime(isMuted() ? 0 : 0.16, ctx.currentTime + 1.5);
+    humSrc = ctx.createBufferSource();
+    humSrc.buffer = buffers.hum[0];
+    humSrc.loop = true;
+    humSrc.connect(humGain).connect(out);
+    humSrc.start();
+  } else if (!on && humSrc) {
+    const s = humSrc;
+    humGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+    setTimeout(() => s.stop(), 900);
+    humSrc = null;
+  }
+}
+
 export const orbitSfx = {
-  laser(rapid = false) {
-    if (!ok()) return;
-    const now = ctx.currentTime;
-    if (now - lastLaser < 0.05) return;
-    lastLaser = now;
-    tone({ type: 'square', f0: rapid ? 2100 : 1700, f1: rapid ? 700 : 520, dur: 0.07, vol: 0.035 });
-    tone({ type: 'sine', f0: 3200, f1: 1200, dur: 0.04, vol: 0.02 });
-  },
-  hit(x = 0) { if (!ok()) return; tone({ type: 'triangle', f0: 900, f1: 380, dur: 0.05, vol: 0.06, pan: panOf(x) }); },
-  deflect(x = 0) { if (!ok()) return; tone({ type: 'sine', f0: 2600, f1: 2400, dur: 0.12, vol: 0.05, pan: panOf(x) }); tone({ type: 'sine', f0: 3900, f1: 3700, dur: 0.08, vol: 0.03, pan: panOf(x) }); },
+  laser(rapid = false) { play('laser', { vol: 0.16, rate: rapid ? 1.2 : 1, jitter: 0.08, gap: 0.05 }); },
+  hit(x = 0) { play('hit', { vol: 0.14, pan: panOf(x), rate: 1.5, gap: 0.04 }); },
+  deflect(x = 0) { play('hit', { vol: 0.3, pan: panOf(x), rate: 2.2, gap: 0.06 }); },
   explode(x = 0, size = 0.6) {
-    if (!ok()) return;
-    const big = size >= 1;
-    hiss({ dur: 0.25 + size * 0.5, vol: 0.22 + size * 0.15, from: big ? 2400 : 3600, to: 90, pan: panOf(x) });
-    tone({ type: 'sine', f0: big ? 140 : 220, f1: 40, dur: 0.2 + size * 0.35, vol: 0.18 + size * 0.1, pan: panOf(x) });
+    if (size >= 1) play('boom', { vol: 0.45 + 0.15 * Math.min(1, size - 1), pan: panOf(x), rate: 1.1 });
+    play('explode', { vol: 0.35 + 0.25 * Math.min(1, size), pan: panOf(x), rate: 1.25 - 0.3 * Math.min(1, size), gap: 0.03 });
   },
   bossBoom() {
-    if (!ok()) return;
-    for (let i = 0; i < 5; i++) hiss({ dur: 0.9, vol: 0.35, from: 2000, to: 60, delay: i * 0.18, pan: (Math.random() - 0.5) * 1.2 });
-    tone({ type: 'sine', f0: 90, f1: 30, dur: 1.8, vol: 0.4 });
+    play('boom', { vol: 0.9, rate: 0.8 });
+    for (let i = 0; i < 4; i++) play('explode', { vol: 0.6, delay: 0.15 + i * 0.18, pan: (Math.random() - 0.5) * 1.2, rate: 0.8 + Math.random() * 0.3 });
   },
-  hurt() {
-    if (!ok()) return;
-    hiss({ dur: 0.4, vol: 0.45, from: 1200, to: 80 });
-    tone({ type: 'sawtooth', f0: 160, f1: 50, dur: 0.35, vol: 0.2 });
-  },
-  shieldBreak() { if (!ok()) return; tone({ type: 'triangle', f0: 1200, f1: 200, dur: 0.35, vol: 0.15 }); hiss({ dur: 0.3, vol: 0.2, from: 6000, to: 800, type: 'highpass' }); },
-  emp() {
-    if (!ok()) return;
-    tone({ type: 'sine', f0: 60, f1: 30, dur: 1.2, vol: 0.45 });
-    hiss({ dur: 1.0, vol: 0.35, from: 300, to: 6000, q: 2, type: 'bandpass', attack: 0.05 });
-    tone({ type: 'sawtooth', f0: 200, f1: 1600, dur: 0.5, vol: 0.08, delay: 0.02 });
-  },
-  empty() { if (!ok()) return; tone({ type: 'square', f0: 220, f1: 200, dur: 0.12, vol: 0.05 }); },
-  pickup() { if (!ok()) return; [880, 1320, 1760].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.12, vol: 0.08, delay: i * 0.06 })); },
-  charge(x = 0) { if (!ok()) return; tone({ type: 'sawtooth', f0: 180, f1: 900, dur: 0.55, vol: 0.05, pan: panOf(x), attack: 0.2 }); },
-  lock(x = 0) { if (!ok()) return; [0, 0.12, 0.24].forEach((d) => tone({ type: 'square', f0: 1500, dur: 0.05, vol: 0.04, delay: d, pan: panOf(x) })); },
-  blink(x = 0) { if (!ok()) return; tone({ type: 'sine', f0: 400, f1: 2400, dur: 0.18, vol: 0.06, pan: panOf(x) }); },
-  bullet(x = 0) { if (!ok()) return; tone({ type: 'square', f0: 520, f1: 260, dur: 0.1, vol: 0.03, pan: panOf(x) }); },
-  wave() { if (!ok()) return; [523, 659, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.25, vol: 0.07, delay: i * 0.09 })); },
-  alarm() {
-    if (!ok()) return;
-    for (let i = 0; i < 3; i++) { tone({ type: 'sawtooth', f0: 440, f1: 660, dur: 0.35, vol: 0.08, delay: i * 0.5 }); tone({ type: 'sawtooth', f0: 660, f1: 440, dur: 0.12, vol: 0.06, delay: i * 0.5 + 0.35 }); }
-  },
-  phase() { if (!ok()) return; tone({ type: 'sawtooth', f0: 110, f1: 55, dur: 0.8, vol: 0.2 }); hiss({ dur: 0.6, vol: 0.2, from: 800, to: 100 }); },
+  hurt() { play('boom', { vol: 0.7, rate: 1.4 }); play('explode', { vol: 0.5, rate: 0.9 }); },
+  shieldBreak() { play('shield', { vol: 0.5, rate: 1.2 }); },
+  emp() { play('emp', { vol: 0.7 }); play('boom', { vol: 0.5, rate: 0.7, delay: 0.05 }); },
+  empty() { play('empty', { vol: 0.3 }); },
+  pickup() { play('pickup', { vol: 0.35 }); },
+  charge(x = 0) { play('charge', { vol: 0.28, pan: panOf(x), gap: 0.1 }); },
+  lock(x = 0) { play('lock', { vol: 0.25, pan: panOf(x), gap: 0.2 }); },
+  blink(x = 0) { play('blink', { vol: 0.25, pan: panOf(x), gap: 0.1 }); },
+  bullet(x = 0) { play('bullet', { vol: 0.12, pan: panOf(x), rate: 0.8, gap: 0.06 }); },
+  wave() { play('wave', { vol: 0.3 }); },
+  alarm() { play('alarm', { vol: 0.4 }); play('alarm', { vol: 0.35, delay: 1.35 }); },
+  phase() { play('phase', { vol: 0.4 }); play('boom', { vol: 0.35, rate: 0.6 }); },
+  start() { play('start', { vol: 0.45 }); hum(true); },
+  win() { hum(false); play('win', { vol: 0.5 }); play('win', { vol: 0.35, delay: 0.5, rate: 1.26, jitter: 0 }); play('win', { vol: 0.35, delay: 1.0, rate: 1.5, jitter: 0 }); },
+  over() { hum(false); play('boom', { vol: 0.8, rate: 0.7 }); play('over', { vol: 0.5, delay: 0.4, rate: 0.8 }); },
+  pause(on) { if (humGain && ctx) humGain.gain.linearRampToValueAtTime(on || isMuted() ? 0 : 0.16, ctx.currentTime + 0.3); },
+  mute(on) { if (humGain && ctx) humGain.gain.linearRampToValueAtTime(on ? 0 : 0.16, ctx.currentTime + 0.1); },
 };

@@ -5,7 +5,7 @@
 import * as O from './orbit-logic.js';
 import { OrbitScene } from './orbit-scene.js';
 import { createShell } from './shell.js';
-import { sfx, unlockSound, isMuted, setMuted } from './sound.js';
+import { isMuted, setMuted } from './sound.js';
 import { createFx } from './fx.js';
 import { orbitSfx, unlockOrbitSound } from './orbit-sfx.js';
 
@@ -142,13 +142,14 @@ function newGame() {
   scene.setAim(game.aim);
   $('#o-end').hidden = true;
   handle(O.start(game.st));
-  sfx('start', { vol: 0.8 });
+  orbitSfx.start();
   hud(true);
 }
 
 function setPaused(on, why = '') {
   if (!game.playing) return;
   game.paused = on;
+  orbitSfx.pause(on);
   game.pauseWhy = on ? why : '';
   $('#o-pause').hidden = !on;
   const first = game.st && game.st.t < 1;
@@ -163,7 +164,7 @@ $('#b-pause').addEventListener('click', () => setPaused(!game.paused, 'key'));
 $('#b-zero').addEventListener('click', zeroDial);
 $('#o-again').addEventListener('click', () => { unlock(); newGame(); });
 
-function unlock() { unlockSound(); unlockOrbitSound(); }
+function unlock() { unlockOrbitSound(); }
 for (const id of ['#btn-start-cam', '#btn-start-mouse']) {
   $(id).addEventListener('click', () => {
     unlock();
@@ -235,10 +236,10 @@ function handle(evs) {
       case 'waveClear': banner(`<b>WAVE ${ev.wave} 방어 성공</b>`); break;
       case 'boss': orbitSfx.alarm(); bigSay(ev.name); banner(`<b>경고 — 보스 접근</b> ${ev.name}`); break;
       case 'bossPhase': orbitSfx.phase(); banner(`<b>보스 페이즈 ${ev.phase}</b>`); break;
-      case 'bossDown': orbitSfx.bossBoom(); specialFx(); sfx('win2', { vol: 0.7, delay: 0.4 }); bigSay('격파!'); break;
+      case 'bossDown': orbitSfx.bossBoom(); specialFx(); bigSay('격파!'); break;
       case 'stageClear': banner(`<b>STAGE ${ev.stage} 클리어</b> — 선체 1칸 회복`); break;
-      case 'victory': victoryFx('승리!'); sfx('win', { vol: 0.8 }); end(true); break;
-      case 'over': sfx('over', { vol: 0.8 }); scene.explode(0, 0, 0, 'spark', true); end(false); break;
+      case 'victory': victoryFx('승리!'); orbitSfx.win(); end(true); break;
+      case 'over': orbitSfx.over(); scene.explode(0, 0, 0, 'spark', true); end(false); break;
       default: break;
     }
   }
@@ -297,7 +298,7 @@ function hud(force = false) {
 
 const soundBtn = $('#b-sound');
 const showSound = () => { soundBtn.textContent = isMuted() ? '소리 꺼짐' : '소리 켜짐'; soundBtn.classList.toggle('off', isMuted()); };
-soundBtn.addEventListener('click', () => { unlock(); setMuted(!isMuted()); showSound(); });
+soundBtn.addEventListener('click', () => { unlock(); setMuted(!isMuted()); orbitSfx.mute(isMuted()); showSound(); });
 showSound();
 banner('<b>궤도 방어</b> — 시작을 누르세요');
 
