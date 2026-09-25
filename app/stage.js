@@ -211,6 +211,8 @@ export class Stage {
     table.position.y = -0.215;
     table.receiveShadow = true;
     scene.add(table);
+    this.table = table;
+    this.lights = { key, rim, bounce };
 
     this.tweens = [];
     this.pointer = { x: 0, y: 0 };

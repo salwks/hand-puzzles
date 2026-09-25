@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>궤도 방어</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@400;600&display=swap">
+  <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body class="orbit">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+      <symbol id="i-mouse" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14"/><path d="M16 5v14"/></symbol>
+    </defs>
+  </svg>
+
+  <canvas id="stage" aria-label="궤도 방어 전장"></canvas>
+
+  <div id="app">
+    <header id="hud">
+      <a class="back" href="./"><svg class="icon"><use href="#i-back"/></svg><span>게임 선택</span></a>
+      <div class="overline">ORBIT DEFENSE</div>
+      <h1>궤도 방어</h1>
+      <div class="hud-tools">
+        <button id="b-sound" class="btn small sound-toggle" aria-label="소리 켜기/끄기"></button>
+        <button id="b-pause" class="btn small" aria-label="일시정지 (P)"><svg class="icon"><use href="#i-pause"/></svg><span>일시정지</span> <kbd>P</kbd></button>
+      </div>
+      <dl class="stats">
+        <div><dt>스테이지</dt><dd id="o-stage">1-1</dd></div>
+        <div><dt>점수</dt><dd id="o-score" class="gold">0</dd></div>
+        <div><dt>콤보</dt><dd id="o-combo">—</dd></div>
+      </dl>
+      <div class="o-bars">
+        <div class="o-row"><span class="o-lbl">선체</span><span id="o-hull" class="pips hull"></span></div>
+        <div class="o-row"><span class="o-lbl">EMP</span><span id="o-emp" class="pips emp"></span><span class="o-key" id="o-emp-key">우클릭 · Space</span></div>
+        <div class="o-row" id="o-powers"></div>
+      </div>
+    </header>
+
+    <div id="banner" role="status" aria-live="polite"><i class="gem"></i><span id="banner-text"></span></div>
+  </div>
+
+  <div id="o-boss" hidden>
+    <div class="overline" id="o-boss-over">BOSS</div>
+    <div class="nm" id="o-boss-name"></div>
+    <div class="bar"><span id="o-boss-fill"></span></div>
+    <div class="ph" id="o-boss-ph"></div>
+  </div>
+
+  <aside id="o-dial" hidden aria-label="손 다이얼">
+    <div class="overline">DIAL</div>
+    <svg viewBox="0 0 200 110" aria-hidden="true">
+      <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2b2722" stroke-width="10" stroke-linecap="round"/>
+      <path id="o-dial-arc" d="" fill="none" stroke="#cdb27a" stroke-width="10" stroke-linecap="round"/>
+      <line x1="100" y1="100" x2="100" y2="14" stroke="#4a443c" stroke-dasharray="3 5"/>
+      <line id="o-dial-hand" x1="100" y1="100" x2="100" y2="24" stroke="#ede6d8" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="100" cy="100" r="5" fill="#cdb27a"/>
+      <text x="14" y="108" fill="#9c9385" font-size="10">−90°</text><text x="166" y="108" fill="#9c9385" font-size="10">+90°</text>
+    </svg>
+    <div class="o-dial-read"><span id="o-dial-roll">손목 —</span><span id="o-dial-aim">조준 —</span></div>
+    <div class="o-dial-state" id="o-dial-state">손을 펴서 카메라에 보이세요</div>
+    <button id="b-zero" class="btn small">영점 맞추기 <kbd>C</kbd></button>
+  </aside>
+
+  <div id="big-say" hidden></div>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+  <aside id="cam" class="off">
+    <video id="video" playsinline muted></video>
+    <div class="preview" id="cam-slot">
+      <canvas id="cam-canvas" width="320" height="240"></canvas>
+      <div class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></div>
+      <div id="cam-status"></div>
+    </div>
+    <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+    <button id="btn-tune" class="btn small"><svg class="icon"><use href="#i-gear"/></svg><span>손 인식 보정</span></button>
+    <button id="btn-cam-on" class="btn small"><svg class="icon"><use href="#i-camera"/></svg><span>카메라 켜기</span></button>
+  </aside>
+
+  <aside id="drawer" hidden aria-label="손 인식 보정">
+    <div class="drawer-head">
+      <div>
+        <div class="overline">CALIBRATION</div>
+        <h2>손 인식 보정</h2>
+      </div>
+      <button id="btn-drawer-close" class="btn square" aria-label="닫기"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="preview large" id="drawer-slot"></div>
+    <div class="drawer-status"><span class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></span><span id="hand-side"></span></div>
+    <div class="field">
+      <div class="field-head"><span>핀치</span><span id="pinch-state"></span></div>
+      <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+      <div class="gauge-labels"><span>붙임</span><span>밝은 선 집기 · 어두운 선 놓기</span><span>벌림</span></div>
+    </div>
+    <hr>
+    <div class="field">
+      <div class="field-head"><label for="tune-smooth">떨림 보정</label><output id="tune-smooth-value"></output></div>
+      <input id="tune-smooth" type="range" min="0" max="1" step="0.05">
+      <p>올리면 조준이 안정적이지만 조금 느려집니다.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-pinch">핀치 감도</label><output id="tune-pinch-value"></output></div>
+      <input id="tune-pinch" type="range" min="0.6" max="1.6" step="0.05">
+      <p>이 게임에서는 핀치를 쓰지 않습니다.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-wilor">WiLoR 3D 보정</label><input id="tune-wilor" type="checkbox"></div>
+      <p id="engine-state"></p>
+    </div>
+    <div class="drawer-foot">
+      <span id="log-status">진단 로그 대기 중</span>
+      <button id="btn-cam" class="btn small">카메라 켜기</button>
+    </div>
+  </aside>
+
+  <div id="cursor" hidden></div>
+  <div id="toast" hidden></div>
+
+  <section id="o-pause" class="modal" hidden>
+    <div class="card">
+      <div class="overline">PAUSED</div>
+      <h2>일시정지</h2>
+      <p id="o-pause-why">P를 누르면 계속합니다</p>
+      <div class="stack"><button id="o-resume" class="btn primary tall">계속하기</button><a class="btn" href="./">게임 선택으로</a></div>
+    </div>
+  </section>
+
+  <section id="o-end" class="modal" hidden>
+    <div class="card">
+      <div class="overline" id="o-end-over">GAME OVER</div>
+      <h2 id="o-end-title"></h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <dl class="stats large">
+        <div><dt>점수</dt><dd id="o-end-score" class="gold">0</dd></div>
+        <div><dt>도달</dt><dd id="o-end-stage">1-1</dd></div>
+        <div><dt>격추</dt><dd id="o-end-kills">0</dd></div>
+      </dl>
+      <p id="o-end-best"></p>
+      <div class="stack"><button id="o-again" class="btn primary tall">다시 하기</button><a class="btn" href="./">게임 선택으로</a></div>
+    </div>
+  </section>
+
+  <section id="modal-start" class="start">
+    <div class="start-copy">
+      <div class="overline">ORBIT DEFENSE</div>
+      <h2>궤도 방어</h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <p class="lead">가운데 우주선을 향해 사방에서 적이 돌진합니다.<br>손목을 다이얼처럼 돌려 겨누면 레이저는 알아서 나갑니다.</p>
+      <ol class="steps">
+        <li><b>01</b><div><strong>손을 펴서 똑바로 세우기</strong><span>그때의 손목 각도가 위쪽(영점)이 됩니다.</span></div></li>
+        <li><b>02</b><div><strong>손목을 돌려 겨누기</strong><span>좌우 90°를 돌리면 포신이 한 바퀴를 다 돕니다.</span></div></li>
+        <li><b>03</b><div><strong>위급하면 주먹 쥐기 — EMP</strong><span>화면의 적을 한 번에 공격합니다. 스테이지마다 3회.</span></div></li>
+      </ol>
+      <div class="row">
+        <button id="btn-start-cam" class="btn primary"><svg class="icon"><use href="#i-camera"/></svg><span>카메라로 시작</span></button>
+        <button id="btn-start-mouse" class="btn"><svg class="icon"><use href="#i-mouse"/></svg><span>마우스로 시작</span></button>
+      </div>
+      <p class="fine">마우스: 커서 쪽으로 조준, 우클릭·Space로 EMP, P로 일시정지. 영상은 기기 밖으로 전송되지 않습니다.</p>
+    </div>
+  </section>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="app/orbit.js"></script>
+</body>
+</html>

@@ -628,3 +628,45 @@ body.gs #hint { left: var(--pad); right: auto; top: auto; bottom: var(--pad); wi
 body.gs #hint .hint-head .btn.small { height: 30px; padding: 0 10px; font-size: 11px; }
 body.gs #guide-body p, body.gs #guide-body .why, body.gs #guide-body .goal { font-size: 12px; line-height: 1.6; }
 body.water.fluid #cam .btn { background: rgba(20,22,24,0.78); color: #f1efe8; border-color: rgba(20,22,24,0.9); }
+
+/* ---------- 궤도 방어 (orbit) ---------- */
+body.orbit { background: #05060a; }
+body.orbit .hud-tools { display: flex; gap: 6px; margin-top: 4px; }
+body.orbit .hud-tools .btn.small { height: 34px; padding: 0 12px; font-size: 12px; margin: 0; }
+body.orbit kbd { font-family: inherit; font-size: 10px; padding: 0 4px; margin-left: 2px; border: 1px solid var(--line); color: var(--muted); }
+body.orbit .stats dd { font-size: 26px; }
+body.orbit .stats dd small { font-family: var(--sans); font-size: 11px; letter-spacing: 0.12em; color: var(--ruby-tint); }
+.o-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.o-row { display: flex; align-items: center; gap: 10px; min-height: 16px; }
+.o-lbl { width: 34px; font-size: 11px; letter-spacing: 0.12em; color: var(--muted); }
+.o-key { font-size: 11px; color: var(--muted); }
+.pips { display: flex; gap: 4px; }
+.pips i { display: block; width: 20px; height: 7px; background: #2a2622; }
+.pips.hull i.on { background: var(--emerald); box-shadow: 0 0 8px rgba(63, 159, 121, 0.6); }
+.pips.hull i.shield { background: #8ff0c8; }
+.pips.emp i { width: 11px; height: 11px; transform: rotate(45deg); border: 1px solid #7ee8ff; background: transparent; margin: 0 3px; }
+.pips.emp i.on { background: #7ee8ff; box-shadow: 0 0 10px rgba(126, 232, 255, 0.7); }
+.chip { font-size: 12px; padding: 2px 8px; border: 1px solid var(--line); background: rgba(20, 18, 16, 0.8); color: #7ee8ff; }
+.chip.pierce { color: #d2b8ff; } .chip.rapid { color: #f2c46b; }
+body.orbit #banner { padding: 10px 20px; font-size: 14px; background: rgba(20, 18, 16, 0.85); }
+
+#o-boss { position: fixed; left: 50%; top: 86px; transform: translateX(-50%); width: min(460px, 60vw); text-align: center; z-index: 5; pointer-events: none; }
+#o-boss[hidden] { display: none; }
+#o-boss .overline { font-size: 11px; color: var(--ruby-tint); }
+#o-boss .nm { font-family: var(--serif); font-size: 16px; letter-spacing: 0.08em; margin-top: 2px; }
+#o-boss .bar { height: 7px; margin-top: 6px; background: #231f1b; border: 1px solid var(--line); }
+#o-boss .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--ruby), #e0676c); box-shadow: 0 0 12px rgba(201, 69, 75, 0.6); transition: width 0.15s; }
+#o-boss .ph { display: flex; justify-content: center; gap: 6px; margin-top: 6px; }
+#o-boss .ph i { display: block; width: 28px; height: 3px; background: #3a3430; }
+#o-boss .ph i.on { background: var(--ruby); }
+
+#o-dial { position: fixed; right: var(--pad); bottom: clamp(16px, 4.4vh, 40px); width: 216px; padding: 12px; background: rgba(20, 18, 16, 0.9); border: 1px solid var(--line); z-index: 20; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.2s, box-shadow 0.2s; }
+#o-dial[hidden] { display: none; }
+#o-dial svg { width: 100%; display: block; }
+#o-dial.grab { border-color: var(--gold); }
+#o-dial.fist { border-color: #7ee8ff; box-shadow: 0 0 18px rgba(126, 232, 255, 0.35); }
+.o-dial-read { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.o-dial-read #o-dial-aim { color: #7ee8ff; }
+.o-dial-state { font-size: 12px; color: var(--ivory); }
+#o-dial .btn.small { height: 30px; font-size: 11px; }
+body.intro #o-dial, body.intro #o-boss { visibility: hidden; }
