@@ -83,7 +83,7 @@ function hum(on) {
 }
 
 export const orbitSfx = {
-  laser(rapid = false) { play('laser', { vol: 0.16, rate: rapid ? 1.2 : 1, jitter: 0.08, gap: 0.05 }); },
+  laser(rapid = false) { play('laser', { vol: 0.05, rate: rapid ? 1.2 : 1, jitter: 0.08, gap: 0.05 }); }, // it fires six times a second: keep it in the background
   hit(x = 0) { play('hit', { vol: 0.14, pan: panOf(x), rate: 1.5, gap: 0.04 }); },
   deflect(x = 0) { play('hit', { vol: 0.3, pan: panOf(x), rate: 2.2, gap: 0.06 }); },
   explode(x = 0, size = 0.6) {
