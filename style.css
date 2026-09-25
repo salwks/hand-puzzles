@@ -627,3 +627,4 @@ body.gs #hint { left: var(--pad); right: auto; top: auto; bottom: var(--pad); wi
   padding: 10px 12px; gap: 6px; background: rgba(20,18,16,0.82); }
 body.gs #hint .hint-head .btn.small { height: 30px; padding: 0 10px; font-size: 11px; }
 body.gs #guide-body p, body.gs #guide-body .why, body.gs #guide-body .goal { font-size: 12px; line-height: 1.6; }
+body.water.fluid #cam .btn { background: rgba(20,22,24,0.78); color: #f1efe8; border-color: rgba(20,22,24,0.9); }

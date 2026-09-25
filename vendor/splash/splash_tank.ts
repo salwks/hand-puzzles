@@ -58,6 +58,8 @@ export async function createTank(canvas: HTMLCanvasElement, opts: TankOptions): 
   const adapter = await navigator.gpu.requestAdapter()
   if (!adapter) throw new Error('no WebGPU adapter')
   const device = await adapter.requestDevice()
+  // a page opened in a pane that isn't laid out yet has a 0×0 canvas: wait for a real size
+  while (!canvas.clientWidth || !canvas.clientHeight) await new Promise((r) => setTimeout(r, 50))
   const context = canvas.getContext('webgpu') as GPUCanvasContext
   canvas.width = Math.round(res * canvas.clientWidth)
   canvas.height = Math.round(res * canvas.clientHeight)

@@ -32,7 +32,7 @@ function ln(f) {
     const n = o ?? new f(2);
     return n[0] = Math.round(e[0]), n[1] = Math.round(e[1]), n;
   }
-  function X(e, o = 0, n = 1, r) {
+  function R(e, o = 0, n = 1, r) {
     const u = r ?? new f(2);
     return u[0] = Math.min(n, Math.max(o, e[0])), u[1] = Math.min(n, Math.max(o, e[1])), u;
   }
@@ -101,16 +101,16 @@ function ln(f) {
     return Math.sqrt(o * o + n * n);
   }
   const xe = te;
-  function A(e) {
+  function Y(e) {
     const o = e[0], n = e[1];
     return o * o + n * n;
   }
-  const W = A;
-  function Y(e, o) {
+  const W = Y;
+  function X(e, o) {
     const n = e[0] - o[0], r = e[1] - o[1];
     return Math.sqrt(n * n + r * r);
   }
-  const Be = Y;
+  const Be = X;
   function q(e, o) {
     const n = e[0] - o[0], r = e[1] - o[1];
     return n * n + r * r;
@@ -134,11 +134,11 @@ function ln(f) {
     return r[0] = e[0] * o[0], r[1] = e[1] * o[1], r;
   }
   const ve = le;
-  function R(e, o, n) {
+  function A(e, o, n) {
     const r = n ?? new f(2);
     return r[0] = e[0] / o[0], r[1] = e[1] / o[1], r;
   }
-  const $ = R;
+  const $ = A;
   function ee(e = 1, o) {
     const n = o ?? new f(2), r = Math.random() * 2 * Math.PI;
     return n[0] = Math.cos(r) * e, n[1] = Math.sin(r) * e, n;
@@ -178,7 +178,7 @@ function ln(f) {
     ceil: U,
     floor: b,
     round: F,
-    clamp: X,
+    clamp: R,
     add: G,
     addScaled: B,
     angle: Z,
@@ -199,9 +199,9 @@ function ln(f) {
     dot: C,
     length: te,
     len: xe,
-    lengthSq: A,
+    lengthSq: Y,
     lenSq: W,
-    distance: Y,
+    distance: X,
     dist: Be,
     distanceSq: q,
     distSq: me,
@@ -211,7 +211,7 @@ function ln(f) {
     clone: pe,
     multiply: le,
     mul: ve,
-    divide: R,
+    divide: A,
     div: $,
     random: ee,
     zero: i,
@@ -250,7 +250,7 @@ function fn(f) {
     const h = a ?? new f(3);
     return h[0] = Math.round(c[0]), h[1] = Math.round(c[1]), h[2] = Math.round(c[2]), h;
   }
-  function X(c, a = 0, h = 1, x) {
+  function R(c, a = 0, h = 1, x) {
     const m = x ?? new f(3);
     return m[0] = Math.min(h, Math.max(a, c[0])), m[1] = Math.min(h, Math.max(a, c[1])), m[2] = Math.min(h, Math.max(a, c[2])), m;
   }
@@ -319,16 +319,16 @@ function fn(f) {
     return Math.sqrt(a * a + h * h + x * x);
   }
   const xe = te;
-  function A(c) {
+  function Y(c) {
     const a = c[0], h = c[1], x = c[2];
     return a * a + h * h + x * x;
   }
-  const W = A;
-  function Y(c, a) {
+  const W = Y;
+  function X(c, a) {
     const h = c[0] - a[0], x = c[1] - a[1], m = c[2] - a[2];
     return Math.sqrt(h * h + x * x + m * m);
   }
-  const Be = Y;
+  const Be = X;
   function q(c, a) {
     const h = c[0] - a[0], x = c[1] - a[1], m = c[2] - a[2];
     return h * h + x * x + m * m;
@@ -352,11 +352,11 @@ function fn(f) {
     return x[0] = c[0] * a[0], x[1] = c[1] * a[1], x[2] = c[2] * a[2], x;
   }
   const ve = le;
-  function R(c, a, h) {
+  function A(c, a, h) {
     const x = h ?? new f(3);
     return x[0] = c[0] / a[0], x[1] = c[1] / a[1], x[2] = c[2] / a[2], x;
   }
-  const $ = R;
+  const $ = A;
   function ee(c = 1, a) {
     const h = a ?? new f(3), x = Math.random() * 2 * Math.PI, m = Math.random() * 2 - 1, P = Math.sqrt(1 - m * m) * c;
     return h[0] = Math.cos(x) * P, h[1] = Math.sin(x) * P, h[2] = m * c, h;
@@ -424,7 +424,7 @@ function fn(f) {
     ceil: U,
     floor: b,
     round: F,
-    clamp: X,
+    clamp: R,
     add: G,
     addScaled: B,
     angle: Z,
@@ -445,9 +445,9 @@ function fn(f) {
     dot: C,
     length: te,
     len: xe,
-    lengthSq: A,
+    lengthSq: Y,
     lenSq: W,
-    distance: Y,
+    distance: X,
     dist: Be,
     distanceSq: q,
     distSq: me,
@@ -457,7 +457,7 @@ function fn(f) {
     clone: pe,
     multiply: le,
     mul: ve,
-    divide: R,
+    divide: A,
     div: $,
     random: ee,
     zero: i,
@@ -499,7 +499,7 @@ function dn(f) {
     const t = d ?? new f(12), s = i[0], l = i[1], p = i[2], w = i[3], e = s + s, o = l + l, n = p + p, r = s * e, u = l * e, g = l * o, y = p * e, c = p * o, a = p * n, h = w * e, x = w * o, m = w * n;
     return t[0] = 1 - g - a, t[1] = u + m, t[2] = y - x, t[3] = 0, t[4] = u - m, t[5] = 1 - r - a, t[6] = c + h, t[7] = 0, t[8] = y + x, t[9] = c - h, t[10] = 1 - r - g, t[11] = 0, t;
   }
-  function X(i, d) {
+  function R(i, d) {
     const t = d ?? new f(12);
     return t[0] = -i[0], t[1] = -i[1], t[2] = -i[2], t[4] = -i[4], t[5] = -i[5], t[6] = -i[6], t[8] = -i[8], t[9] = -i[9], t[10] = -i[10], t;
   }
@@ -577,7 +577,7 @@ function dn(f) {
     const t = d ?? new f(12), s = Math.cos(i), l = Math.sin(i);
     return t[0] = s, t[1] = l, t[2] = 0, t[4] = -l, t[5] = s, t[6] = 0, t[8] = 0, t[9] = 0, t[10] = 1, t;
   }
-  function A(i, d, t) {
+  function Y(i, d, t) {
     const s = t ?? new f(12), l = i[0 * 4 + 0], p = i[0 * 4 + 1], w = i[0 * 4 + 2], e = i[1 * 4 + 0], o = i[1 * 4 + 1], n = i[1 * 4 + 2], r = Math.cos(d), u = Math.sin(d);
     return s[0] = r * l + u * e, s[1] = r * p + u * o, s[2] = r * w + u * n, s[4] = r * e - u * l, s[5] = r * o - u * p, s[6] = r * n - u * w, i !== s && (s[8] = i[8], s[9] = i[9], s[10] = i[10]), s;
   }
@@ -585,7 +585,7 @@ function dn(f) {
     const t = d ?? new f(12), s = Math.cos(i), l = Math.sin(i);
     return t[0] = 1, t[1] = 0, t[2] = 0, t[4] = 0, t[5] = s, t[6] = l, t[8] = 0, t[9] = -l, t[10] = s, t;
   }
-  function Y(i, d, t) {
+  function X(i, d, t) {
     const s = t ?? new f(12), l = i[4], p = i[5], w = i[6], e = i[8], o = i[9], n = i[10], r = Math.cos(d), u = Math.sin(d);
     return s[4] = r * l + u * e, s[5] = r * p + u * o, s[6] = r * w + u * n, s[8] = r * e - u * l, s[9] = r * o - u * p, s[10] = r * n - u * w, i !== s && (s[0] = i[0], s[1] = i[1], s[2] = i[2]), s;
   }
@@ -597,7 +597,7 @@ function dn(f) {
     const s = t ?? new f(12), l = i[0 * 4 + 0], p = i[0 * 4 + 1], w = i[0 * 4 + 2], e = i[2 * 4 + 0], o = i[2 * 4 + 1], n = i[2 * 4 + 2], r = Math.cos(d), u = Math.sin(d);
     return s[0] = r * l - u * e, s[1] = r * p - u * o, s[2] = r * w - u * n, s[8] = r * e + u * l, s[9] = r * o + u * p, s[10] = r * n + u * w, i !== s && (s[4] = i[4], s[5] = i[5], s[6] = i[6]), s;
   }
-  const me = xe, de = A;
+  const me = xe, de = Y;
   function Ge(i, d) {
     const t = d ?? new f(12);
     return t[0] = i[0], t[1] = 0, t[2] = 0, t[4] = 0, t[5] = i[1], t[6] = 0, t[8] = 0, t[9] = 0, t[10] = 1, t;
@@ -618,7 +618,7 @@ function dn(f) {
     const t = d ?? new f(12);
     return t[0] = i, t[1] = 0, t[2] = 0, t[4] = 0, t[5] = i, t[6] = 0, t[8] = 0, t[9] = 0, t[10] = 1, t;
   }
-  function R(i, d, t) {
+  function A(i, d, t) {
     const s = t ?? new f(12);
     return s[0] = d * i[0 * 4 + 0], s[1] = d * i[0 * 4 + 1], s[2] = d * i[0 * 4 + 2], s[4] = d * i[1 * 4 + 0], s[5] = d * i[1 * 4 + 1], s[6] = d * i[1 * 4 + 2], i !== s && (s[8] = i[8], s[9] = i[9], s[10] = i[10]), s;
   }
@@ -636,7 +636,7 @@ function dn(f) {
     set: U,
     fromMat4: b,
     fromQuat: F,
-    negate: X,
+    negate: R,
     copy: G,
     equalsApproximately: Z,
     equals: N,
@@ -656,9 +656,9 @@ function dn(f) {
     translation: C,
     translate: te,
     rotation: xe,
-    rotate: A,
+    rotate: Y,
     rotationX: W,
-    rotateX: Y,
+    rotateX: X,
     rotationY: Be,
     rotateY: q,
     rotationZ: me,
@@ -666,7 +666,7 @@ function dn(f) {
     scaling: Ge,
     scale: K,
     uniformScaling: ve,
-    uniformScale: R,
+    uniformScale: A,
     scaling3D: pe,
     scale3D: le,
     uniformScaling3D: $,
@@ -700,11 +700,11 @@ function hn(f) {
     const n = o ?? new f(16);
     return n[0] = -e[0], n[1] = -e[1], n[2] = -e[2], n[3] = -e[3], n[4] = -e[4], n[5] = -e[5], n[6] = -e[6], n[7] = -e[7], n[8] = -e[8], n[9] = -e[9], n[10] = -e[10], n[11] = -e[11], n[12] = -e[12], n[13] = -e[13], n[14] = -e[14], n[15] = -e[15], n;
   }
-  function X(e, o) {
+  function R(e, o) {
     const n = o ?? new f(16);
     return n[0] = e[0], n[1] = e[1], n[2] = e[2], n[3] = e[3], n[4] = e[4], n[5] = e[5], n[6] = e[6], n[7] = e[7], n[8] = e[8], n[9] = e[9], n[10] = e[10], n[11] = e[11], n[12] = e[12], n[13] = e[13], n[14] = e[14], n[15] = e[15], n;
   }
-  const G = X;
+  const G = R;
   function B(e, o) {
     return Math.abs(e[0] - o[0]) < k && Math.abs(e[1] - o[1]) < k && Math.abs(e[2] - o[2]) < k && Math.abs(e[3] - o[3]) < k && Math.abs(e[4] - o[4]) < k && Math.abs(e[5] - o[5]) < k && Math.abs(e[6] - o[6]) < k && Math.abs(e[7] - o[7]) < k && Math.abs(e[8] - o[8]) < k && Math.abs(e[9] - o[9]) < k && Math.abs(e[10] - o[10]) < k && Math.abs(e[11] - o[11]) < k && Math.abs(e[12] - o[12]) < k && Math.abs(e[13] - o[13]) < k && Math.abs(e[14] - o[14]) < k && Math.abs(e[15] - o[15]) < k;
   }
@@ -751,7 +751,7 @@ function hn(f) {
     return r[0] = e[u + 0], r[1] = e[u + 1], r[2] = e[u + 2], r;
   }
   function oe(e, o, n, r) {
-    const u = r === e ? r : X(e, r), g = n * 4;
+    const u = r === e ? r : R(e, r), g = n * 4;
     return u[g + 0] = o[0], u[g + 1] = o[1], u[g + 2] = o[2], u;
   }
   function ne(e, o) {
@@ -795,18 +795,18 @@ function hn(f) {
     }
     return c;
   }
-  const A = v.create(), W = v.create(), Y = v.create();
+  const Y = v.create(), W = v.create(), X = v.create();
   function Be(e, o, n, r) {
     const u = r ?? new f(16);
-    return v.normalize(v.subtract(o, e, Y), Y), v.normalize(v.cross(n, Y, A), A), v.normalize(v.cross(Y, A, W), W), u[0] = A[0], u[1] = A[1], u[2] = A[2], u[3] = 0, u[4] = W[0], u[5] = W[1], u[6] = W[2], u[7] = 0, u[8] = Y[0], u[9] = Y[1], u[10] = Y[2], u[11] = 0, u[12] = e[0], u[13] = e[1], u[14] = e[2], u[15] = 1, u;
+    return v.normalize(v.subtract(o, e, X), X), v.normalize(v.cross(n, X, Y), Y), v.normalize(v.cross(X, Y, W), W), u[0] = Y[0], u[1] = Y[1], u[2] = Y[2], u[3] = 0, u[4] = W[0], u[5] = W[1], u[6] = W[2], u[7] = 0, u[8] = X[0], u[9] = X[1], u[10] = X[2], u[11] = 0, u[12] = e[0], u[13] = e[1], u[14] = e[2], u[15] = 1, u;
   }
   function q(e, o, n, r) {
     const u = r ?? new f(16);
-    return v.normalize(v.subtract(e, o, Y), Y), v.normalize(v.cross(n, Y, A), A), v.normalize(v.cross(Y, A, W), W), u[0] = A[0], u[1] = A[1], u[2] = A[2], u[3] = 0, u[4] = W[0], u[5] = W[1], u[6] = W[2], u[7] = 0, u[8] = Y[0], u[9] = Y[1], u[10] = Y[2], u[11] = 0, u[12] = e[0], u[13] = e[1], u[14] = e[2], u[15] = 1, u;
+    return v.normalize(v.subtract(e, o, X), X), v.normalize(v.cross(n, X, Y), Y), v.normalize(v.cross(X, Y, W), W), u[0] = Y[0], u[1] = Y[1], u[2] = Y[2], u[3] = 0, u[4] = W[0], u[5] = W[1], u[6] = W[2], u[7] = 0, u[8] = X[0], u[9] = X[1], u[10] = X[2], u[11] = 0, u[12] = e[0], u[13] = e[1], u[14] = e[2], u[15] = 1, u;
   }
   function me(e, o, n, r) {
     const u = r ?? new f(16);
-    return v.normalize(v.subtract(e, o, Y), Y), v.normalize(v.cross(n, Y, A), A), v.normalize(v.cross(Y, A, W), W), u[0] = A[0], u[1] = W[0], u[2] = Y[0], u[3] = 0, u[4] = A[1], u[5] = W[1], u[6] = Y[1], u[7] = 0, u[8] = A[2], u[9] = W[2], u[10] = Y[2], u[11] = 0, u[12] = -(A[0] * e[0] + A[1] * e[1] + A[2] * e[2]), u[13] = -(W[0] * e[0] + W[1] * e[1] + W[2] * e[2]), u[14] = -(Y[0] * e[0] + Y[1] * e[1] + Y[2] * e[2]), u[15] = 1, u;
+    return v.normalize(v.subtract(e, o, X), X), v.normalize(v.cross(n, X, Y), Y), v.normalize(v.cross(X, Y, W), W), u[0] = Y[0], u[1] = W[0], u[2] = X[0], u[3] = 0, u[4] = Y[1], u[5] = W[1], u[6] = X[1], u[7] = 0, u[8] = Y[2], u[9] = W[2], u[10] = X[2], u[11] = 0, u[12] = -(Y[0] * e[0] + Y[1] * e[1] + Y[2] * e[2]), u[13] = -(W[0] * e[0] + W[1] * e[1] + W[2] * e[2]), u[14] = -(X[0] * e[0] + X[1] * e[1] + X[2] * e[2]), u[15] = 1, u;
   }
   function de(e, o) {
     const n = o ?? new f(16);
@@ -832,7 +832,7 @@ function hn(f) {
     const r = n ?? new f(16), u = e[0 * 4 + 0], g = e[0 * 4 + 1], y = e[0 * 4 + 2], c = e[0 * 4 + 3], a = e[2 * 4 + 0], h = e[2 * 4 + 1], x = e[2 * 4 + 2], m = e[2 * 4 + 3], P = Math.cos(o), D = Math.sin(o);
     return r[0] = P * u - D * a, r[1] = P * g - D * h, r[2] = P * y - D * x, r[3] = P * c - D * m, r[8] = P * a + D * u, r[9] = P * h + D * g, r[10] = P * x + D * y, r[11] = P * m + D * c, e !== r && (r[4] = e[4], r[5] = e[5], r[6] = e[6], r[7] = e[7], r[12] = e[12], r[13] = e[13], r[14] = e[14], r[15] = e[15]), r;
   }
-  function R(e, o) {
+  function A(e, o) {
     const n = o ?? new f(16), r = Math.cos(e), u = Math.sin(e);
     return n[0] = r, n[1] = u, n[2] = 0, n[3] = 0, n[4] = -u, n[5] = r, n[6] = 0, n[7] = 0, n[8] = 0, n[9] = 0, n[10] = 1, n[11] = 0, n[12] = 0, n[13] = 0, n[14] = 0, n[15] = 1, n;
   }
@@ -880,7 +880,7 @@ function hn(f) {
     fromMat3: U,
     fromQuat: b,
     negate: F,
-    copy: X,
+    copy: R,
     clone: G,
     equalsApproximately: B,
     equals: Z,
@@ -910,7 +910,7 @@ function hn(f) {
     rotateX: pe,
     rotationY: le,
     rotateY: ve,
-    rotationZ: R,
+    rotationZ: A,
     rotateZ: $,
     axisRotation: ee,
     rotation: i,
@@ -946,7 +946,7 @@ function xn(f) {
     const t = d ?? v.create(3), s = Math.acos(i[3]) * 2, l = Math.sin(s * 0.5);
     return l > k ? (t[0] = i[0] / l, t[1] = i[1] / l, t[2] = i[2] / l) : (t[0] = 1, t[1] = 0, t[2] = 0), { angle: s, axis: t };
   }
-  function X(i, d) {
+  function R(i, d) {
     const t = te(i, d);
     return Math.acos(2 * t * t - 1);
   }
@@ -1060,16 +1060,16 @@ function xn(f) {
     const l = s ?? new f(4);
     return l[0] = i[0] + t * (d[0] - i[0]), l[1] = i[1] + t * (d[1] - i[1]), l[2] = i[2] + t * (d[2] - i[2]), l[3] = i[3] + t * (d[3] - i[3]), l;
   }
-  function A(i) {
+  function Y(i) {
     const d = i[0], t = i[1], s = i[2], l = i[3];
     return Math.sqrt(d * d + t * t + s * s + l * l);
   }
-  const W = A;
-  function Y(i) {
+  const W = Y;
+  function X(i) {
     const d = i[0], t = i[1], s = i[2], l = i[3];
     return d * d + t * t + s * s + l * l;
   }
-  const Be = Y;
+  const Be = X;
   function q(i, d) {
     const t = d ?? new f(4), s = i[0], l = i[1], p = i[2], w = i[3], e = Math.sqrt(s * s + l * l + p * p + w * w);
     return e > 1e-5 ? (t[0] = s / e, t[1] = l / e, t[2] = p / e, t[3] = w / e) : (t[0] = 0, t[1] = 0, t[2] = 0, t[3] = 1), t;
@@ -1089,10 +1089,10 @@ function xn(f) {
     const s = t ?? new f(4), l = v.dot(i, d);
     return l < -0.999999 ? (v.cross(pe, i, K), v.len(K) < 1e-6 && v.cross(le, i, K), v.normalize(K, K), b(K, Math.PI, s), s) : l > 0.999999 ? (s[0] = 0, s[1] = 0, s[2] = 0, s[3] = 1, s) : (v.cross(i, d, K), s[0] = K[0], s[1] = K[1], s[2] = K[2], s[3] = 1 + l, q(s, s));
   }
-  const R = new f(4), $ = new f(4);
+  const A = new f(4), $ = new f(4);
   function ee(i, d, t, s, l, p) {
     const w = p ?? new f(4);
-    return re(i, s, l, R), re(d, t, l, $), re(R, $, 2 * l * (1 - l), w), w;
+    return re(i, s, l, A), re(d, t, l, $), re(A, $, 2 * l * (1 - l), w), w;
   }
   return {
     create: M,
@@ -1100,7 +1100,7 @@ function xn(f) {
     set: U,
     fromAxisAngle: b,
     toAxisAngle: F,
-    angle: X,
+    angle: R,
     multiply: G,
     mul: B,
     rotateX: Z,
@@ -1121,9 +1121,9 @@ function xn(f) {
     divScalar: C,
     dot: te,
     lerp: xe,
-    length: A,
+    length: Y,
     len: W,
-    lengthSq: Y,
+    lengthSq: X,
     lenSq: Be,
     normalize: q,
     equalsApproximately: me,
@@ -1160,7 +1160,7 @@ function wn(f) {
     const l = s ?? new f(4);
     return l[0] = Math.round(t[0]), l[1] = Math.round(t[1]), l[2] = Math.round(t[2]), l[3] = Math.round(t[3]), l;
   }
-  function X(t, s = 0, l = 1, p) {
+  function R(t, s = 0, l = 1, p) {
     const w = p ?? new f(4);
     return w[0] = Math.min(l, Math.max(s, t[0])), w[1] = Math.min(l, Math.max(s, t[1])), w[2] = Math.min(l, Math.max(s, t[2])), w[3] = Math.min(l, Math.max(s, t[3])), w;
   }
@@ -1226,16 +1226,16 @@ function wn(f) {
     return s * s + l * l + p * p + w * w;
   }
   const xe = te;
-  function A(t, s) {
+  function Y(t, s) {
     const l = t[0] - s[0], p = t[1] - s[1], w = t[2] - s[2], e = t[3] - s[3];
     return Math.sqrt(l * l + p * p + w * w + e * e);
   }
-  const W = A;
-  function Y(t, s) {
+  const W = Y;
+  function X(t, s) {
     const l = t[0] - s[0], p = t[1] - s[1], w = t[2] - s[2], e = t[3] - s[3];
     return l * l + p * p + w * w + e * e;
   }
-  const Be = Y;
+  const Be = X;
   function q(t, s) {
     const l = s ?? new f(4), p = t[0], w = t[1], e = t[2], o = t[3], n = Math.sqrt(p * p + w * w + e * e + o * o);
     return n > 1e-5 ? (l[0] = p / n, l[1] = w / n, l[2] = e / n, l[3] = o / n) : (l[0] = 0, l[1] = 0, l[2] = 0, l[3] = 0), l;
@@ -1259,7 +1259,7 @@ function wn(f) {
     return p[0] = t[0] / s[0], p[1] = t[1] / s[1], p[2] = t[2] / s[2], p[3] = t[3] / s[3], p;
   }
   const ve = le;
-  function R(t) {
+  function A(t) {
     const s = t ?? new f(4);
     return s[0] = 0, s[1] = 0, s[2] = 0, s[3] = 0, s;
   }
@@ -1286,7 +1286,7 @@ function wn(f) {
     ceil: U,
     floor: b,
     round: F,
-    clamp: X,
+    clamp: R,
     add: G,
     addScaled: B,
     subtract: Z,
@@ -1307,9 +1307,9 @@ function wn(f) {
     len: C,
     lengthSq: te,
     lenSq: xe,
-    distance: A,
+    distance: Y,
     dist: W,
-    distanceSq: Y,
+    distanceSq: X,
     distSq: Be,
     normalize: q,
     negate: me,
@@ -1319,7 +1319,7 @@ function wn(f) {
     mul: pe,
     divide: le,
     div: ve,
-    zero: R,
+    zero: A,
     transformMat4: $,
     setLength: ee,
     truncate: i,
@@ -1448,16 +1448,16 @@ class yn {
   calcMouseVelocity() {
     if (this.isDragging)
       return [0, 0];
-    let [v, M] = this.calcPlaneCoord(this.currentHoverX, this.currentHoverY), [T, U] = this.calcPlaneCoord(this.prevHoverX, this.prevHoverY), b = v - T, F = M - U, X = 4;
-    return b > X && (b = X), b < -X && (b = -X), F > X && (F = X), F < -X && (F = -X), [b, F, 0, 0];
+    let [v, M] = this.calcPlaneCoord(this.currentHoverX, this.currentHoverY), [T, U] = this.calcPlaneCoord(this.prevHoverX, this.prevHoverY), b = v - T, F = M - U, R = 4;
+    return b > R && (b = R), b < -R && (b = -R), F > R && (F = R), F < -R && (F = -R), [b, F, 0, 0];
   }
   calcPlaneCoord(v, M) {
-    let T = v / this.canvas.width, U = M / this.canvas.height, b = 2 * T - 1, F = (1 - U) * 2 - 1, X = [
+    let T = v / this.canvas.width, U = M / this.canvas.height, b = 2 * T - 1, F = (1 - U) * 2 - 1, R = [
       b * Math.tan(this.fov / 2) * (this.canvas.width / this.canvas.height),
       F * Math.tan(this.fov / 2),
       -1
     ];
-    return [X[0] * this.currentDistance, X[1] * this.currentDistance];
+    return [R[0] * this.currentDistance, R[1] * this.currentDistance];
   }
   setNewPrevMouseCoord() {
     this.prevHoverX = this.currentHoverX, this.prevHoverY = this.currentHoverY;
@@ -1946,7 +1946,7 @@ fn clearDensityGrid(@builtin(global_invocation_id) id: vec3<u32>) {
 }`;
 const Re = 80;
 class Vn {
-  constructor(v, M, T, U, b, F, X, G, B, Z, N, ie, re, fe) {
+  constructor(v, M, T, U, b, F, R, G, B, Z, N, ie, re, fe) {
     z(this, "cellStructSize", 16);
     z(this, "realBoxSizeBuffer");
     z(this, "numParticlesBuffer");
@@ -2155,7 +2155,7 @@ class Vn {
         { binding: 1, resource: { buffer: this.densityBuffer } },
         { binding: 2, resource: { buffer: this.numParticlesBuffer } },
         { binding: 3, resource: { buffer: U } },
-        { binding: 4, resource: { buffer: X } }
+        { binding: 4, resource: { buffer: R } }
       ]
     }), this.updateGridBindGroup = G.createBindGroup({
       layout: this.updateGridPipeline.getBindGroupLayout(0),
@@ -2203,8 +2203,8 @@ class Vn {
         }
     console.log(this.numParticles), this.numParticles < M && console.log("warning: actual number of particles is smaller than the specified number. make bounding box larger.");
     let b = new ArrayBuffer(Re * this.numParticles);
-    const F = new Uint8Array(T), X = new Uint8Array(b);
-    return X.set(F.subarray(0, X.length)), b;
+    const F = new Uint8Array(T), R = new Uint8Array(b);
+    return R.set(F.subarray(0, R.length)), b;
   }
   reset(v, M) {
     if (this.gridCount = Math.ceil(v[0]) * Math.ceil(v[1]) * Math.ceil(v[2]), this.gridCount > this.maxGridCount)
@@ -2215,17 +2215,17 @@ class Vn {
     let U = this.initDambreak(v, M);
     this.device.queue.writeBuffer(this.particleBuffer, 0, U), this.changeBoxSize(v), this.changeNumParticles(this.numParticles);
   }
-  execute(v, M, T, U, b, F, X, G) {
+  execute(v, M, T, U, b, F, R, G) {
     const B = v.beginComputePass();
     this.mouseInfoViews.mouseCoord.set([M[0], M[1]]), this.mouseInfoViews.mouseVel.set([T[0], T[1]]), this.mouseInfoViews.mouseRadius.set([U]), this.device.queue.writeBuffer(this.mouseInfoUniformBuffer, 0, this.mouseInfoValues);
     const Z = new Float32Array([F]);
     if (this.device.queue.writeBuffer(this.dtBuffer, 0, Z), b) {
-      if (X)
+      if (R)
         for (let ie = 0; ie < 1; ie++)
           B.setBindGroup(0, this.clearGridBindGroup), B.setPipeline(this.clearGridPipeline), B.dispatchWorkgroups(Math.ceil(this.gridCount / 64)), B.setBindGroup(0, this.p2g1BindGroup), B.setPipeline(this.p2g1Pipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64)), B.setBindGroup(0, this.p2g2BindGroup), B.setPipeline(this.p2g2Pipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64)), B.setBindGroup(0, this.updateGridBindGroup), B.setPipeline(this.updateGridPipeline), B.dispatchWorkgroups(Math.ceil(this.gridCount / 64)), B.setBindGroup(0, this.g2pBindGroup), B.setPipeline(this.g2pPipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
       let N = G[0] * G[1] * G[2];
       B.setBindGroup(0, this.clearDensityGridBindGroup), B.setPipeline(this.clearDensityGridPipeline), B.dispatchWorkgroups(Math.ceil(N / 2 / 64)), B.setBindGroup(0, this.p2gDensityBindGroup), B.setPipeline(this.p2gDensityPipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64)), B.setBindGroup(0, this.castDensityGridBindGroup), B.setPipeline(this.castDensityGridPipeline), B.dispatchWorkgroups(Math.ceil(N / 2 / 64)), B.setBindGroup(0, this.copyPositionBindGroup), B.setPipeline(this.copyPositionPipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
-    } else if (X) {
+    } else if (R) {
       for (let N = 0; N < 1; N++)
         B.setBindGroup(0, this.clearGridBindGroup), B.setPipeline(this.clearGridPipeline), B.dispatchWorkgroups(Math.ceil(this.gridCount / 64)), B.setBindGroup(0, this.p2g1BindGroup), B.setPipeline(this.p2g1Pipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64)), B.setBindGroup(0, this.p2g2BindGroup), B.setPipeline(this.p2g2Pipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64)), B.setBindGroup(0, this.updateGridBindGroup), B.setPipeline(this.updateGridPipeline), B.dispatchWorkgroups(Math.ceil(this.gridCount / 64)), B.setBindGroup(0, this.g2pBindGroup), B.setPipeline(this.g2pPipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
       B.setBindGroup(0, this.copyPositionBindGroup), B.setPipeline(this.copyPositionPipeline), B.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
@@ -2958,7 +2958,7 @@ fn fs(input: FragmentInput) -> @location(0) vec4f {
     return vec4f(gamma(finalColor), 1.); 
 }`;
 class On {
-  constructor(v, M, T, U, b, F, X, G, B, Z, N, ie, re) {
+  constructor(v, M, T, U, b, F, R, G, B, Z, N, ie, re) {
     z(this, "depthFilter1DPipeline");
     z(this, "depthFilter2DPipeline");
     z(this, "thicknessMapPipeline");
@@ -3002,7 +3002,7 @@ class On {
       // addressModeV: "repeat",
       magFilter: "linear",
       minFilter: "linear"
-    }), J = b.createShaderModule({ code: Un }), j = b.createShaderModule({ code: _n }), C = b.createShaderModule({ code: Fn }), te = b.createShaderModule({ code: Yn }), xe = b.createShaderModule({ code: Xn }), A = b.createShaderModule({ code: In }), W = b.createShaderModule({ code: An }), Y = b.createShaderModule({ code: Rn }), Be = b.createShaderModule({ code: kn });
+    }), J = b.createShaderModule({ code: Un }), j = b.createShaderModule({ code: _n }), C = b.createShaderModule({ code: Fn }), te = b.createShaderModule({ code: Yn }), xe = b.createShaderModule({ code: Xn }), Y = b.createShaderModule({ code: In }), W = b.createShaderModule({ code: An }), X = b.createShaderModule({ code: Rn }), Be = b.createShaderModule({ code: kn });
     this.depthMapPipeline = b.createRenderPipeline({
       label: "depthMap pipeline",
       layout: "auto",
@@ -3094,10 +3094,10 @@ class On {
       label: "thickness map pipeline",
       layout: "auto",
       vertex: {
-        module: A
+        module: Y
       },
       fragment: {
-        module: A,
+        module: Y,
         targets: [
           {
             format: "r16float",
@@ -3157,7 +3157,7 @@ class On {
         constants: H
       },
       fragment: {
-        module: Y,
+        module: X,
         targets: [
           {
             format: Z
@@ -3230,8 +3230,8 @@ class On {
       size: 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     }), this.densityGridSizeBuffer = T;
-    let R = new Float32Array([1, 0]), $ = new Float32Array([0, 1]), ee = new Int32Array([15]);
-    b.queue.writeBuffer(pe, 0, R), b.queue.writeBuffer(le, 0, $), b.queue.writeBuffer(ve, 0, ee), this.depthFilter1DBindGroups = [], this.depthFilter1DBindGroups = [
+    let A = new Float32Array([1, 0]), $ = new Float32Array([0, 1]), ee = new Int32Array([15]);
+    b.queue.writeBuffer(pe, 0, A), b.queue.writeBuffer(le, 0, $), b.queue.writeBuffer(ve, 0, ee), this.depthFilter1DBindGroups = [], this.depthFilter1DBindGroups = [
       b.createBindGroup({
         label: "filterX bind group",
         layout: this.depthFilter1DPipeline.getBindGroupLayout(0),
@@ -3305,7 +3305,7 @@ class On {
         { binding: 1, resource: this.depthMapTextureView },
         { binding: 2, resource: { buffer: v } },
         { binding: 3, resource: this.thicknessTextureView },
-        { binding: 4, resource: X },
+        { binding: 4, resource: R },
         { binding: 5, resource: this.tmpOutputTextureView },
         { binding: 6, resource: { buffer: this.diffuseColorBuffer } },
         { binding: 7, resource: { buffer: this.colorDensityBuffer } }
@@ -3321,7 +3321,7 @@ class On {
       label: "bgColor bind group",
       layout: this.bgColorPipeline.getBindGroupLayout(0),
       entries: [
-        { binding: 0, resource: X },
+        { binding: 0, resource: R },
         { binding: 1, resource: { buffer: v } },
         { binding: 2, resource: ne }
       ]
@@ -3347,8 +3347,8 @@ class On {
     }), console.log(this.densityRaymarchPipeline.getBindGroupLayout(0));
   }
   execute(v, M, T, U, b, F) {
-    const X = new Float32Array(b), G = new Float32Array([F]);
-    this.device.queue.writeBuffer(this.diffuseColorBuffer, 0, X), this.device.queue.writeBuffer(this.colorDensityBuffer, 0, G);
+    const R = new Float32Array(b), G = new Float32Array([F]);
+    this.device.queue.writeBuffer(this.diffuseColorBuffer, 0, R), this.device.queue.writeBuffer(this.colorDensityBuffer, 0, G);
     const B = [
       {
         colorAttachments: [
@@ -3513,20 +3513,22 @@ function Ln(f, v) {
 async function Cn(f, v) {
   const M = v.particles ?? 55e3, T = v.box ?? [72, 22, 43], U = v.resolution ?? 0.7, b = await navigator.gpu.requestAdapter();
   if (!b) throw new Error("no WebGPU adapter");
-  const F = await b.requestDevice(), X = f.getContext("webgpu");
+  const F = await b.requestDevice();
+  for (; !f.clientWidth || !f.clientHeight; ) await new Promise((A) => setTimeout(A, 50));
+  const R = f.getContext("webgpu");
   f.width = Math.round(U * f.clientWidth), f.height = Math.round(U * f.clientHeight);
   const G = navigator.gpu.getPreferredCanvasFormat();
-  X.configure({ device: F, format: G });
-  const B = ["side", "side", "up", "down", "side", "side"], Z = await Promise.all(B.map((R) => createImageBitmap(Ln(64, R)))), N = F.createTexture({
+  R.configure({ device: F, format: G });
+  const B = ["side", "side", "up", "down", "side", "side"], Z = await Promise.all(B.map((A) => createImageBitmap(Ln(64, A)))), N = F.createTexture({
     dimension: "2d",
     size: [Z[0].width, Z[0].height, 6],
     format: "rgba8unorm",
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
   });
-  Z.forEach((R, $) => F.queue.copyExternalImageToTexture({ source: R }, { texture: N, origin: [0, 0, $] }, [R.width, R.height]));
+  Z.forEach((A, $) => F.queue.copyExternalImageToTexture({ source: A }, { texture: N, origin: [0, 0, $] }, [A.width, A.height]));
   const ie = N.createView({ dimension: "cube" }), re = T[0] * T[1] * T[2], fe = F.createBuffer({ size: Re * M, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }), ue = F.createBuffer({ size: 32 * M, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }), ae = F.createBuffer({ size: Ye.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }), se = F.createBuffer({ size: 12, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }), H = F.createTexture({ size: [f.width, f.height, 1], usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING, format: "r32float" }).createView(), L = [T[0], T[1], Math.ceil(T[2] / 128) * 128], oe = F.createBuffer({ size: 4 * L[0] * L[1] * L[2], usage: GPUBufferUsage.STORAGE }), ne = F.createBuffer({ size: 2 * L[0] * L[1] * L[2], usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC }), J = F.createBuffer({ size: 12, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   F.queue.writeBuffer(J, 0, new Float32Array(L));
-  const j = F.createTexture({ size: [L[2], L[1], L[0]], usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST, format: "r16float", dimension: "3d" }), C = 60 * Math.PI / 180, te = 0.6, xe = 2 * te, A = 1e7, W = new Vn(
+  const j = F.createTexture({ size: [L[2], L[1], L[0]], usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST, format: "r16float", dimension: "3d" }), C = 60 * Math.PI / 180, te = 0.6, xe = 2 * te, Y = 1e7, W = new Vn(
     fe,
     ue,
     ae,
@@ -3539,9 +3541,9 @@ async function Cn(f, v) {
     f,
     re,
     M,
-    A,
+    Y,
     xe
-  ), Y = new On(
+  ), X = new On(
     ae,
     ue,
     J,
@@ -3554,14 +3556,14 @@ async function Cn(f, v) {
     G,
     te,
     C,
-    A
+    Y
   );
-  W.initDambreak = function(R, $) {
+  W.initDambreak = function(A, $) {
     const ee = new ArrayBuffer(Re * this.maxParticleCount), i = 0.9;
     this.numParticles = 0;
-    for (let d = 3; d < R[1] - 3 && this.numParticles < $; d += i)
-      for (let t = 3; t < R[0] - 3 && this.numParticles < $; t += i)
-        for (let s = 3; s < R[2] - 3 && this.numParticles < $; s += i) {
+    for (let d = 3; d < A[1] - 3 && this.numParticles < $; d += i)
+      for (let t = 3; t < A[0] - 3 && this.numParticles < $; t += i)
+        for (let s = 3; s < A[2] - 3 && this.numParticles < $; s += i) {
           const l = Re * this.numParticles;
           new Float32Array(ee, l, 3).set([t + 0.3 * Math.random(), d + 0.3 * Math.random(), s + 0.3 * Math.random()]), this.numParticles++;
         }
@@ -3583,24 +3585,24 @@ async function Cn(f, v) {
     addEventListener() {
     }
   }, q = new yn(Be), me = () => {
-    const R = f.clientWidth / Math.max(1, f.clientHeight), ee = (T[0] - 7) / 2 / 0.9 / (Math.tan(C / 2) * R) + (T[2] / 2 - 3);
+    const A = f.clientWidth / Math.max(1, f.clientHeight), ee = (T[0] - 7) / 2 / 0.9 / (Math.tan(C / 2) * A) + (T[2] / 2 - 3);
     q.reset(ee, [T[0] / 2, T[1] * 0.42, T[2] / 2], C, 0.7), q.currentXtheta = 0, q.currentYtheta = -((v.elevation ?? 10) * Math.PI) / 180, q.recalculateView();
   };
   W.reset(T, M), me();
   let de = !1;
   q.currentHoverX = q.prevHoverX = -1e4, q.currentHoverY = q.prevHoverY = -1e4;
-  const Ge = (R, $) => {
+  const Ge = (A, $) => {
     const ee = f.getBoundingClientRect();
-    if (R === null || $ === void 0) {
+    if (A === null || $ === void 0) {
       de = !1, q.currentHoverX = q.prevHoverX = -1e4, q.currentHoverY = q.prevHoverY = -1e4;
       return;
     }
-    de || (q.prevHoverX = R - ee.left, q.prevHoverY = $ - ee.top), de = !0, q.currentHoverX = R - ee.left, q.currentHoverY = $ - ee.top;
+    de || (q.prevHoverX = A - ee.left, q.prevHoverY = $ - ee.top), de = !0, q.currentHoverX = A - ee.left, q.currentHoverY = $ - ee.top;
   }, K = () => {
     Xe.texelSize.set([1 / f.width, 1 / f.height]), Xe.sphereSize.set([xe]), F.queue.writeBuffer(ae, 0, Ye);
-    const R = F.createCommandEncoder();
+    const A = F.createCommandEncoder();
     W.execute(
-      R,
+      A,
       [q.currentHoverX / f.clientWidth, q.currentHoverY / f.clientHeight],
       q.calcMouseVelocity().map(($) => $ * 0.6),
       15,
@@ -3608,7 +3610,7 @@ async function Cn(f, v) {
       0.4 * 0.8,
       !0,
       L
-    ), Y.execute(X, R, W.numParticles, !1, [140 / 255, 220 / 255, 240 / 255], 0.7), F.queue.submit([R.finish()]), q.setNewPrevMouseCoord();
+    ), X.execute(R, A, W.numParticles, !1, [140 / 255, 220 / 255, 240 / 255], 0.7), F.queue.submit([A.finish()]), q.setNewPrevMouseCoord();
   };
   let pe = 0, le = !1;
   const ve = () => {
@@ -3622,8 +3624,8 @@ async function Cn(f, v) {
     },
     advance: K,
     box: T,
-    project: (R, $, ee) => {
-      const i = Xe.viewMatrix, d = Xe.projectionMatrix, t = i[0] * R + i[4] * $ + i[8] * ee + i[12], s = i[1] * R + i[5] * $ + i[9] * ee + i[13], l = i[2] * R + i[6] * $ + i[10] * ee + i[14], p = i[3] * R + i[7] * $ + i[11] * ee + i[15], w = d[0] * t + d[4] * s + d[8] * l + d[12] * p, e = d[1] * t + d[5] * s + d[9] * l + d[13] * p, o = d[3] * t + d[7] * s + d[11] * l + d[15] * p, n = f.getBoundingClientRect();
+    project: (A, $, ee) => {
+      const i = Xe.viewMatrix, d = Xe.projectionMatrix, t = i[0] * A + i[4] * $ + i[8] * ee + i[12], s = i[1] * A + i[5] * $ + i[9] * ee + i[13], l = i[2] * A + i[6] * $ + i[10] * ee + i[14], p = i[3] * A + i[7] * $ + i[11] * ee + i[15], w = d[0] * t + d[4] * s + d[8] * l + d[12] * p, e = d[1] * t + d[5] * s + d[9] * l + d[13] * p, o = d[3] * t + d[7] * s + d[11] * l + d[15] * p, n = f.getBoundingClientRect();
       return { x: n.left + (w / o * 0.5 + 0.5) * n.width, y: n.top + (0.5 - e / o * 0.5) * n.height, behind: o <= 0 };
     },
     destroy: () => {
