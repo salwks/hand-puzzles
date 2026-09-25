@@ -31,17 +31,18 @@ export const wrap = (a) => a - TAU * Math.floor((a + Math.PI) / TAU); // → [-�
 
 const RADIUS = { S: 0.45, M: 0.7, L: 1.2 };
 const SCORE = { S: 100, M: 250, L: 600 };
-/** kind → { name, en, size, hp, family, cost (wave budget per group) } */
+/** kind → { name, en, size, hp, family, cost (wave budget per group) }. The ones that weave,
+ * circle, blink or dodge are hard to keep in the sights, so they break after fewer hits. */
 export const ENEMIES = {
   spark:     { name: '스파크', en: 'Spark', size: 'S', hp: 1, family: 'ruby', cost: 2 },
   drone:     { name: '드론', en: 'Drone', size: 'S', hp: 1, family: 'ruby', cost: 3 },
-  zig:       { name: '지그', en: 'Zig', size: 'S', hp: 2, family: 'sapphire', cost: 1.5 },
-  spinner:   { name: '스피너', en: 'Spinner', size: 'S', hp: 2, family: 'sapphire', cost: 1.5 },
+  zig:       { name: '지그', en: 'Zig', size: 'S', hp: 1, family: 'sapphire', cost: 1.5 },
+  spinner:   { name: '스피너', en: 'Spinner', size: 'S', hp: 1, family: 'sapphire', cost: 1.5 },
   dasher:    { name: '대셔', en: 'Dasher', size: 'M', hp: 3, family: 'ruby', cost: 2.5 },
-  orbiter:   { name: '오비터', en: 'Orbiter', size: 'M', hp: 3, family: 'sapphire', cost: 2.5 },
+  orbiter:   { name: '오비터', en: 'Orbiter', size: 'M', hp: 2, family: 'sapphire', cost: 2.5 },
   splitter:  { name: '스플리터', en: 'Splitter', size: 'M', hp: 4, family: 'violet', cost: 3 },
-  blinker:   { name: '블링커', en: 'Blinker', size: 'M', hp: 3, family: 'violet', cost: 2.5 },
-  hunter:    { name: '헌터', en: 'Hunter', size: 'M', hp: 4, family: 'sapphire', cost: 3 },
+  blinker:   { name: '블링커', en: 'Blinker', size: 'M', hp: 2, family: 'violet', cost: 2.5 },
+  hunter:    { name: '헌터', en: 'Hunter', size: 'M', hp: 2, family: 'sapphire', cost: 3 },
   lancer:    { name: '랜서', en: 'Lancer', size: 'M', hp: 5, family: 'ruby', cost: 3.5 },
   shielder:  { name: '실더', en: 'Shielder', size: 'M', hp: 4, family: 'emerald', cost: 3 },
   gunner:    { name: '거너', en: 'Gunner', size: 'M', hp: 5, family: 'emerald', cost: 3.5 },
