@@ -670,3 +670,16 @@ body.orbit #banner { padding: 10px 20px; font-size: 14px; background: rgba(20, 1
 .o-dial-state { font-size: 12px; color: var(--ivory); }
 #o-dial .btn.small { height: 30px; font-size: 11px; }
 body.intro #o-dial, body.intro #o-boss { visibility: hidden; }
+
+/* ---------- 성냥개비 (match) ---------- */
+body.match .hud-tools { display: flex; gap: 6px; margin-top: 4px; }
+body.match .hud-tools .btn.small { height: 34px; padding: 0 12px; font-size: 12px; margin: 0; }
+body.match .tab[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+body.match .stats dd { font-size: 26px; }
+.m-id { font-size: 11px; letter-spacing: 0.12em; color: var(--muted); margin-top: 6px; }
+.m-moves { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; }
+.m-moves i { display: block; width: 30px; height: 6px; border-radius: 3px; background: #3a3129; }
+.m-moves i.used { background: var(--amber); box-shadow: 0 0 8px rgba(214, 162, 62, 0.6); }
+body.match .dock button { width: 150px; height: 60px; }
+.m-other { font-size: 14px; color: var(--muted); }
+.m-other b { color: var(--gold-hi); font-weight: 500; }

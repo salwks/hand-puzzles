@@ -11,6 +11,7 @@
 - **고스톱** (`gostop.html`) — AI 두 명과 치는 3인 고스톱. 손패를 집어 같은 달 위에 내려치고(빠를수록 세게 '짝!'), 더미를 집어 뒤집고, 엄지 척은 고 · 손바닥은 스톱.
 - **물놀이** (`water.html`) — 물이 든 수조를 손으로 휘젓는 놀이. WebGPU에서는 [Splash](https://github.com/matsuoka-601/Splash)(MIT, `vendor/splash/`)의 입자 물(MLS-MPM), 그 밖에서는 얕은 물 방정식 수면 버전. 배경 스카이박스: three.js 예제 "Bridge2" (Emil Persson, aka Humus, http://www.humus.name — 출처 표기 조건으로 무료).
 - **궤도 방어** (`orbit.html`) — 가운데 우주선으로 사방에서 돌진하는 적(15종)과 스테이지 보스(5종)를 막는 슈팅. 펴진 손의 손목 각도로 포신을 겨누는 다이얼 조작(±90° → 360°), 레이저 자동 연사, 주먹 = EMP. 규칙 엔진 `app/orbit-logic.js`, 테스트 `tools/test-orbit-logic.mjs`. 효과음: Kenney "Sci-fi Sounds"·"Digital Audio" (CC0, `assets/sfx/orbit/`).
+- **성냥개비** (`match.html`) — 7세그먼트 수식(+ − × =)과 정사각형·삼각형 도형 퍼즐. 성냥을 핀치로 집어 옮기고, 정답이면 성냥 머리에 불이 붙음. 문제는 시드로 무한 생성되고 모든 답을 전수 탐색으로 검증(정확히 k번 이동, 답 1~2개), 단계 5개. 규칙 엔진 `app/match-logic.js`, 테스트 `tools/test-match-logic.mjs`.
 - `index.html` — 게임 선택 화면.
 
 ## 실행

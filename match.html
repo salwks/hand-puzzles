@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>성냥개비</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@400;600&display=swap">
+  <link rel="stylesheet" href="style.css?v=7">
+</head>
+<body class="match">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+      <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+      <symbol id="i-mouse" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
+    </defs>
+  </svg>
+
+  <canvas id="stage" aria-label="성냥개비 탁자"></canvas>
+
+  <div id="app">
+    <header id="hud">
+      <a class="back" href="./"><svg class="icon"><use href="#i-back"/></svg><span>게임 선택</span></a>
+      <div class="overline">MATCHSTICKS</div>
+      <h1>성냥개비</h1>
+      <div class="hud-tools">
+        <button id="t-eq" class="btn small tab" aria-pressed="true">수식</button>
+        <button id="t-shape" class="btn small tab" aria-pressed="false">도형</button>
+        <button id="b-sound" class="btn small sound-toggle" aria-label="소리 켜기/끄기"></button>
+      </div>
+      <dl class="stats">
+        <div><dt>단계</dt><dd id="m-level">1</dd></div>
+        <div><dt>난이도</dt><dd id="m-stars" class="gold">★</dd></div>
+        <div><dt>연속 정답</dt><dd id="m-streak">0</dd></div>
+      </dl>
+      <div class="m-id" id="m-id"></div>
+    </header>
+
+    <div id="banner" role="status" aria-live="polite"><i class="gem"></i><span id="banner-text"></span></div>
+
+    <footer>
+      <div class="m-moves" id="m-moves"></div>
+      <div class="dock">
+        <button id="b-hint"><svg class="icon"><use href="#i-hint"/></svg><span>힌트</span></button>
+        <button id="b-undo"><svg class="icon"><use href="#i-undo"/></svg><span>되돌리기</span></button>
+        <button id="b-reset"><svg class="icon"><use href="#i-restart"/></svg><span>처음부터</span></button>
+        <button id="b-skip"><svg class="icon"><use href="#i-next"/></svg><span>건너뛰기</span></button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="big-say" hidden></div>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+  <aside id="cam" class="off">
+    <video id="video" playsinline muted></video>
+    <div class="preview" id="cam-slot">
+      <canvas id="cam-canvas" width="320" height="240"></canvas>
+      <div class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></div>
+      <div id="cam-status"></div>
+    </div>
+    <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+    <button id="btn-tune" class="btn small"><svg class="icon"><use href="#i-gear"/></svg><span>손 인식 보정</span></button>
+    <button id="btn-cam-on" class="btn small"><svg class="icon"><use href="#i-camera"/></svg><span>카메라 켜기</span></button>
+  </aside>
+
+  <aside id="drawer" hidden aria-label="손 인식 보정">
+    <div class="drawer-head">
+      <div>
+        <div class="overline">CALIBRATION</div>
+        <h2>손 인식 보정</h2>
+      </div>
+      <button id="btn-drawer-close" class="btn square" aria-label="닫기"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="preview large" id="drawer-slot"></div>
+    <div class="drawer-status"><span class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></span><span id="hand-side"></span></div>
+    <div class="field">
+      <div class="field-head"><span>핀치</span><span id="pinch-state"></span></div>
+      <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+      <div class="gauge-labels"><span>붙임</span><span>밝은 선 집기 · 어두운 선 놓기</span><span>벌림</span></div>
+    </div>
+    <hr>
+    <div class="field">
+      <div class="field-head"><label for="tune-smooth">떨림 보정</label><output id="tune-smooth-value"></output></div>
+      <input id="tune-smooth" type="range" min="0" max="1" step="0.05">
+      <p>올리면 안정적이지만 조금 느려집니다.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-pinch">핀치 감도</label><output id="tune-pinch-value"></output></div>
+      <input id="tune-pinch" type="range" min="0.6" max="1.6" step="0.05">
+      <p>잘 안 집히면 올리고, 저절로 집히면 내리세요.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-wilor">WiLoR 3D 보정</label><input id="tune-wilor" type="checkbox"></div>
+      <p id="engine-state"></p>
+    </div>
+    <div class="drawer-foot">
+      <span id="log-status">진단 로그 대기 중</span>
+      <button id="btn-cam" class="btn small">카메라 켜기</button>
+    </div>
+  </aside>
+
+  <div id="cursor" hidden></div>
+  <div id="toast" hidden></div>
+
+  <section id="m-done" class="modal" hidden>
+    <div class="card">
+      <div class="overline">SOLVED</div>
+      <h2>정답!</h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <p id="m-done-text"></p>
+      <p id="m-done-other" class="m-other"></p>
+      <div class="stack"><button id="m-next" class="btn primary tall">다음 문제</button></div>
+    </div>
+  </section>
+
+  <section id="modal-start" class="start">
+    <div class="start-copy">
+      <div class="overline">MATCHSTICKS</div>
+      <h2>성냥개비</h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <p class="lead">성냥으로 된 틀린 식, 모자라거나 넘치는 도형.<br>정해진 개수만큼 성냥을 집어 옮겨 바로잡습니다.</p>
+      <ol class="steps">
+        <li><b>01</b><div><strong>성냥을 집기</strong><span>엄지와 검지로 집으면 성냥이 떠오릅니다.</span></div></li>
+        <li><b>02</b><div><strong>빈 자리에 놓기</strong><span>놓일 자리가 금빛으로 비칩니다. 방향은 저절로 맞춰집니다.</span></div></li>
+        <li><b>03</b><div><strong>되돌리기는 손바닥</strong><span>손바닥을 펴 1초 보이면 마지막 이동을 되돌립니다.</span></div></li>
+      </ol>
+      <div class="row">
+        <button id="btn-start-cam" class="btn primary"><svg class="icon"><use href="#i-camera"/></svg><span>카메라로 시작</span></button>
+        <button id="btn-start-mouse" class="btn"><svg class="icon"><use href="#i-mouse"/></svg><span>마우스로 시작</span></button>
+      </div>
+      <p class="fine">문제는 매번 새로 만들어지고, 모든 답을 미리 풀어 검증합니다. 영상은 기기 밖으로 전송되지 않습니다.</p>
+    </div>
+  </section>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="app/match.js"></script>
+</body>
+</html>
