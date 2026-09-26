@@ -7,6 +7,7 @@ import { MatchScene, L } from './match-scene.js';
 import { createShell } from './shell.js';
 import { sfx, unlockSound, isMuted, setMuted } from './sound.js';
 import { createFx } from './fx.js';
+import { matchSfx, unlockMatchSound } from './match-sfx.js';
 
 const $ = (sel) => document.querySelector(sel);
 const SAVE_KEY = 'match-progress';
@@ -96,6 +97,7 @@ function newPuzzle(seed = (Math.random() * 1e6) | 0) {
   const lowest = Math.min(...lay.slots.map((s) => s.y));
   const tray = needsTray ? { x: 0, y: lowest - 1.25 * L, w: Math.max(2.2, L * 2.4) } : null;
   scene.extinguish();
+  matchSfx.stopBurn();
   scene.markAreas(null);
   scene.clearGlows();
   scene.setLayout({ slots: lay.slots, dots: lay.dots ?? [], tray });
@@ -250,7 +252,7 @@ function judge() {
   if (r.done) {
     const moved = game.history.map((h) => h.stick);
     scene.shakeSticks(moved);
-    sfx('knock', { vol: 0.25, rate: 0.8, delay: 0.1 });
+    matchSfx.scrape(); // a match that won't strike
     const why = p.kind === 'equation'
       ? (M.evaluate(r.text) ? `${M.pretty(r.text)} — 아직 참이 아닙니다` : '식으로 읽히지 않습니다')
       : r.loose ? `남는 성냥이 ${r.loose}개 있습니다` : `지금 ${r.count}개 — ${p.target}개를 만들어야 합니다`;
@@ -270,7 +272,8 @@ function win(r) {
   scene.ignite(onBoard);
   specialFx();
   bigSay('정답!');
-  sfx('win', { vol: 0.7 });
+  matchSfx.strike();
+  matchSfx.burn(2.6);
   const p = game.p;
   let text = '', other = '';
   if (p.kind === 'equation') {
@@ -399,10 +402,11 @@ addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); }
   else if (e.key === 'Enter' && !$('#m-done').hidden) newPuzzle();
 });
-for (const id of ['#btn-start-cam', '#btn-start-mouse']) $(id).addEventListener('click', () => unlockSound());
+const unlock = () => { unlockSound(); unlockMatchSound(); };
+for (const id of ['#btn-start-cam', '#btn-start-mouse']) $(id).addEventListener('click', unlock);
 const soundBtn = $('#b-sound');
 const showSound = () => { soundBtn.textContent = isMuted() ? '소리 꺼짐' : '소리 켜짐'; soundBtn.classList.toggle('off', isMuted()); };
-soundBtn.addEventListener('click', () => { unlockSound(); setMuted(!isMuted()); showSound(); });
+soundBtn.addEventListener('click', () => { unlock(); setMuted(!isMuted()); if (isMuted()) matchSfx.stopBurn(); showSound(); });
 showSound();
 
 newPuzzle();

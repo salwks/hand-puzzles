@@ -1,0 +1,4 @@
+Match sounds: BigSoundBank (https://bigsoundbank.com), CC0 / public domain, by Joseph SARDIN.
+- strike0, strike1: 'Match #1' (sound 0004)
+- strike2, scrape: 'Match #2' (sound 1271)
+- fire: 'Fire, Foley' (sound 3322), looped
