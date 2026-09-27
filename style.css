@@ -685,17 +685,17 @@ body.match .dock button { width: 150px; height: 60px; }
 .m-other b { color: var(--gold-hi); font-weight: 500; }
 
 /* ---------- 주차장 탈출 (parking) ---------- */
-body.parking .hud-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-body.parking .hud-tools .btn.small { height: 32px; padding: 0 10px; font-size: 12px; margin: 0; }
-body.parking .tab[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
-body.parking .tab:disabled { opacity: 0.35; }
-body.parking .stats dd { font-size: 26px; }
-body.parking .stats dd small { font-family: var(--sans); font-size: 12px; color: var(--muted); }
-body.parking .dock button { width: 136px; height: 60px; }
+body.parking .hud-tools, body.laser .hud-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+body.parking .hud-tools .btn.small, body.laser .hud-tools .btn.small { height: 32px; padding: 0 10px; font-size: 12px; margin: 0; }
+body.parking .tab[aria-pressed="true"], body.laser .tab[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+body.parking .tab:disabled, body.laser .tab:disabled { opacity: 0.35; }
+body.parking .stats dd, body.laser .stats dd { font-size: 26px; }
+body.parking .stats dd small, body.laser .stats dd small { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+body.parking .dock button, body.laser .dock button { width: 136px; height: 60px; }
 .p-stars { font-size: 34px; letter-spacing: 8px; color: var(--gold-hi); text-align: center; }
-body.parking .p-levels { display: contents; }
+body.parking .p-levels, body.laser .p-levels { display: contents; }
 /* narrow windows: the dock shares the width instead of running off the screen */
 @media (max-width: 700px) {
-  body.parking .dock, body.match .dock { width: calc(100vw - 32px); }
-  body.parking .dock button, body.match .dock button { width: auto; flex: 1; height: 52px; padding: 0 6px; gap: 6px; font-size: 12px; letter-spacing: 0.02em; }
+  body.parking .dock, body.match .dock, body.laser .dock { width: calc(100vw - 32px); }
+  body.parking .dock button, body.match .dock button, body.laser .dock button { width: auto; flex: 1; height: 52px; padding: 0 6px; gap: 6px; font-size: 12px; letter-spacing: 0.02em; }
 }

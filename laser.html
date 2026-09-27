@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>레이저 미로</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@400;600&display=swap">
+  <link rel="stylesheet" href="style.css?v=8">
+</head>
+<body class="laser">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+      <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+      <symbol id="i-mouse" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
+    </defs>
+  </svg>
+
+  <canvas id="stage" aria-label="레이저 판"></canvas>
+
+  <div id="app">
+    <header id="hud">
+      <a class="back" href="./"><svg class="icon"><use href="#i-back"/></svg><span>게임 선택</span></a>
+      <div class="overline">LASER MAZE</div>
+      <h1>레이저 미로</h1>
+      <div class="hud-tools"><div id="l-levels" class="p-levels"></div><button id="b-sound" class="btn small sound-toggle" aria-label="소리 켜기/끄기"></button></div>
+      <dl class="stats">
+        <div><dt>목표</dt><dd class="gold"><span id="l-lit">0</span><small id="l-need"> / 0</small></dd></div>
+        <div><dt>놓은 조각</dt><dd><span id="l-placed">0</span><small id="l-mine"> / 0</small></dd></div>
+      </dl>
+      <div class="m-id" id="l-id"></div>
+    </header>
+
+    <div id="banner" role="status" aria-live="polite"><i class="gem"></i><span id="banner-text">트레이의 조각을 판에 놓아 <b>빛을 목표로</b> 보내세요</span></div>
+
+    <footer>
+      <div class="dock">
+        <button id="b-hint"><svg class="icon"><use href="#i-hint"/></svg><span>힌트</span></button>
+        <button id="b-solve"><svg class="icon"><use href="#i-play"/></svg><span>풀이 보기</span></button>
+        <button id="b-reset"><svg class="icon"><use href="#i-restart"/></svg><span>처음부터</span></button>
+        <button id="b-next"><svg class="icon"><use href="#i-next"/></svg><span>다음 문제</span></button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="big-say" hidden></div>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+  <aside id="cam" class="off">
+    <video id="video" playsinline muted></video>
+    <div class="preview" id="cam-slot">
+      <canvas id="cam-canvas" width="320" height="240"></canvas>
+      <div class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></div>
+      <div id="cam-status"></div>
+    </div>
+    <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+    <button id="btn-tune" class="btn small"><svg class="icon"><use href="#i-gear"/></svg><span>손 인식 보정</span></button>
+    <button id="btn-cam-on" class="btn small"><svg class="icon"><use href="#i-camera"/></svg><span>카메라 켜기</span></button>
+  </aside>
+
+  <aside id="drawer" hidden aria-label="손 인식 보정">
+    <div class="drawer-head">
+      <div>
+        <div class="overline">CALIBRATION</div>
+        <h2>손 인식 보정</h2>
+      </div>
+      <button id="btn-drawer-close" class="btn square" aria-label="닫기"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="preview large" id="drawer-slot"></div>
+    <div class="drawer-status"><span class="track-status"><i></i><span class="track-label">카메라 꺼짐</span></span><span id="hand-side"></span></div>
+    <div class="field">
+      <div class="field-head"><span>핀치</span><span id="pinch-state"></span></div>
+      <div class="gauge" aria-hidden="true"><b></b><i class="tick down"></i><i class="tick up"></i></div>
+      <div class="gauge-labels"><span>붙임</span><span>밝은 선 집기 · 어두운 선 놓기</span><span>벌림</span></div>
+    </div>
+    <hr>
+    <div class="field">
+      <div class="field-head"><label for="tune-smooth">떨림 보정</label><output id="tune-smooth-value"></output></div>
+      <input id="tune-smooth" type="range" min="0" max="1" step="0.05">
+      <p>올리면 안정적이지만 조금 느려집니다.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-pinch">핀치 감도</label><output id="tune-pinch-value"></output></div>
+      <input id="tune-pinch" type="range" min="0.6" max="1.6" step="0.05">
+      <p>잘 안 집히면 올리고, 저절로 집히면 내리세요.</p>
+    </div>
+    <div class="field">
+      <div class="field-head"><label for="tune-wilor">WiLoR 3D 보정</label><input id="tune-wilor" type="checkbox"></div>
+      <p id="engine-state"></p>
+    </div>
+    <div class="drawer-foot">
+      <span id="log-status">진단 로그 대기 중</span>
+      <button id="btn-cam" class="btn small">카메라 켜기</button>
+    </div>
+  </aside>
+
+  <div id="cursor" hidden></div>
+  <div id="toast" hidden></div>
+
+  <section id="l-done" class="modal" hidden>
+    <div class="card">
+      <div class="overline">SOLVED</div>
+      <h2 id="l-done-title">명중</h2>
+      <p id="l-done-text"></p>
+      <p id="l-done-note" class="m-other"></p>
+      <div class="stack"><button id="l-next" class="btn primary tall">다음 문제</button></div>
+    </div>
+  </section>
+
+  <section id="modal-start" class="start">
+    <div class="start-copy">
+      <div class="overline">LASER MAZE</div>
+      <h2>레이저 미로</h2>
+      <div class="ornament"><i class="gem"></i></div>
+      <p class="lead">거울과 빔 분할기로 레이저를 꺾어<br>정해진 수만큼 목표를 밝히세요.</p>
+      <ol class="steps">
+        <li><b>01</b><div><strong>조각 놓기</strong><span>엄지와 검지로 트레이의 조각을 집어 빈칸에 놓습니다. 빛은 바로 따라 움직입니다.</span></div></li>
+        <li><b>02</b><div><strong>돌리기</strong><span>살짝 집었다 놓으면 90° 돌아갑니다. 들고 손목을 비틀어도 됩니다. 금색 화살표가 있는 조각은 돌리기만 됩니다.</span></div></li>
+        <li><b>03</b><div><strong>모든 조건 맞추기</strong><span>목표 수만큼 켜고, 모든 조각에 빛이 닿고, 빛이 판 밖이나 막힌 면으로 새지 않으면 성공.</span></div></li>
+      </ol>
+      <div class="row">
+        <button id="btn-start-cam" class="btn primary"><svg class="icon"><use href="#i-camera"/></svg><span>카메라로 시작</span></button>
+        <button id="btn-start-mouse" class="btn"><svg class="icon"><use href="#i-mouse"/></svg><span>마우스로 시작</span></button>
+      </div>
+      <p class="fine">ThinkFun의 보드게임 Laser Maze 규칙을 따르며, 문제는 답이 하나뿐인 것만 즉석에서 만듭니다. 영상은 기기 밖으로 전송되지 않습니다.</p>
+    </div>
+  </section>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="app/laser.js"></script>
+</body>
+</html>

@@ -6,9 +6,9 @@
 // Cell (r, c) sits at world (c − 2.5, ·, r − 2.5): row 0 is the far side.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { Stage, NO_GLOW, applyGlow, damp, easeInOutCubic, easeOutCubic, clamp } from './stage.js';
 import { N, EXIT_ROW } from './parking-logic.js';
+import { studioLight, lightDesk } from './studio.js';
 
 const TOP = 0.16;        // tile surface height
 const LIFT = 0.28;       // how high a held car rides
@@ -156,60 +156,9 @@ export class ParkingScene extends Stage {
     this.held = null;
     this.hoverId = null;
     this.buildBoard();
-    this.softenLight();
-    this.lightDesk();
+    studioLight(this);
+    lightDesk(this);
     this.start();
-  }
-
-  /**
-   * Studio lighting: a photo-studio HDRI (Poly Haven "Studio Small 09", CC0) lights the scene
-   * and is what the clear coat reflects — its softboxes give the long highlights on the paint.
-   * The table lamp stays only as a faint key for soft contact shadows; the stage's rim and
-   * bounce lights go.
-   */
-  softenLight() {
-    this.keyLight.shadow.mapSize.set(2048, 2048);
-    this.setLampScale(4.6);
-    this.keyLight.intensity *= 0.3;
-    this.keyLight.position.set(-1.6, 11, 2.4); // nearly overhead: short shadows that don't hide the next car
-    this.keyLight.target.position.set(0.3, 0, 0);
-    this.keyLight.angle = 0.75;
-    this.keyLight.color.set(0xffffff);
-    this.keyLight.penumbra = 1;
-    this.lights.rim.intensity = 0;
-    this.lights.bounce.intensity = 0;
-    // Neutral tone mapping keeps the paint's colour and contrast (ACES flattened it to haze), no
-    // fog in a studio, and a little less ambient so the key's shadows give the cars their shape
-    this.renderer.toneMapping = THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
-    this.scene.fog = null;
-    this.scene.environmentIntensity = 0.75;
-    new RGBELoader().load('assets/hdri/studio_small_09_1k.hdr', (hdr) => {
-      const pmrem = new THREE.PMREMGenerator(this.renderer);
-      this.scene.environment = pmrem.fromEquirectangular(hdr).texture;
-      this.scene.environmentRotation = new THREE.Euler(0, 0.9, 0); // softboxes up and to the left, like the lamp
-      hdr.dispose();
-      pmrem.dispose();
-    });
-  }
-
-  /**
-   * The tray sits on a pale matte desk, as in photos of the real game. The desk is lightest under
-   * the tray and darkens towards the edges of the view, so the HUD in the corners stays readable.
-   */
-  lightDesk() {
-    const c = document.createElement('canvas');
-    c.width = c.height = 1024;
-    const g = c.getContext('2d');
-    const grd = g.createRadialGradient(512, 512, 0, 512, 512, 512);
-    // the plane is 90 units across: the light patch is ~14 units wide, fading out by ~40
-    grd.addColorStop(0, '#d9d3c8'); grd.addColorStop(0.1, '#cfc8bb'); grd.addColorStop(0.2, '#6f6a62');
-    grd.addColorStop(0.32, '#1c1a17'); grd.addColorStop(0.45, '#0d0c0a'); grd.addColorStop(1, '#0d0c0a');
-    g.fillStyle = grd; g.fillRect(0, 0, 1024, 1024);
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    this.table.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, envMapIntensity: 0.4 });
-    this.table.position.y = -0.002;
   }
 
   buildBoard() {
