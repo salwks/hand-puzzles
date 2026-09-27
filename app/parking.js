@@ -21,7 +21,7 @@ const prog = { level: 1, unlocked: 1, next: {}, streak: {}, best: {} };
 try { Object.assign(prog, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch { /* keep defaults */ }
 const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(prog)); } catch { /* storage blocked */ } };
 
-const game = { g: null, drag: null, solved: false, palm: 0 };
+const game = { g: null, drag: null, solved: false, palm: 0, auto: null };
 
 // ---------- puzzles ----------
 
@@ -29,6 +29,7 @@ function load(level = prog.level, n = prog.next[level] ?? 0) {
   prog.level = level;
   const p = P.puzzle(level, n);
   game.g = P.newGame(p);
+  stopAuto();
   game.solved = false;
   game.drag = null;
   scene.setPosition(game.g.pos);
@@ -49,7 +50,7 @@ function next() {
 function startDrag(x, y) {
   if (shell.introOpen() || !$('#p-done').hidden) return false;
   scene.pointer = { x, y };
-  if (game.solved) return true;
+  if (game.solved || game.auto) return true;
   const pos = game.g.pos;
   const id = scene.carAt(x, y, pos.cars.map((c) => c.id));
   if (!id) return false;
@@ -104,7 +105,7 @@ function cancelDrag() {
 // ---------- the rest of the buttons ----------
 
 function undo() {
-  if (game.drag || game.solved) return;
+  if (game.drag || game.solved || game.auto) return;
   if (!P.undo(game.g)) { shell.toast('되돌릴 이동이 없습니다', 1200); return; }
   scene.sync(game.g.pos);
   scene.clearHint();
@@ -112,19 +113,68 @@ function undo() {
   render();
 }
 function restart() {
-  if (game.drag || game.solved) return;
+  if (game.drag || game.solved || game.auto) return;
   if (!P.restart(game.g)) return;
   scene.sync(game.g.pos);
   scene.clearHint();
   render();
 }
 function hint() {
-  if (game.drag || game.solved) return;
+  if (game.drag || game.solved || game.auto) return;
   const h = P.hint(game.g.pos);
   if (!h) return;
   scene.showHint(game.g.pos.cars[h.car], h.d);
   const left = P.solve(game.g.pos).length;
   shell.toast(`초록색 차를 화살표 쪽으로 — 여기서 ${left}수면 풉니다`, 2200);
+}
+
+// ---------- 풀이 보기: plays the shortest solution from where the player is ----------
+
+const AUTO_STEP = 900;
+function showSolution() {
+  if (game.drag || game.solved || game.auto) return;
+  const path = P.solve(game.g.pos);
+  if (!path) return;
+  scene.clearHint();
+  game.auto = { path, i: 0, timer: 0 };
+  shell.toast(`여기서 ${path.length}수 풀이를 보여 드립니다`, 1800);
+  render();
+  const step = () => {
+    const a = game.auto;
+    if (!a) return;
+    if (a.i > 0) scene.setGlow(game.g.pos.cars[a.path[a.i - 1].car].id, null);
+    if (a.i === a.path.length) { watched(); return; }
+    const m = a.path[a.i++];
+    P.play(game.g, m.car, m.d);
+    scene.setGlow(game.g.pos.cars[m.car].id, { color: 0x2fae7f, intensity: 0.45, pulse: false });
+    scene.sync(game.g.pos, false, 0.5);
+    sfx('slide', { vol: 0.25, rate: 1.1 });
+    render();
+    a.timer = setTimeout(step, AUTO_STEP);
+  };
+  game.auto.timer = setTimeout(step, 500);
+}
+function stopAuto() {
+  if (!game.auto) return;
+  clearTimeout(game.auto.timer);
+  game.auto = null;
+}
+
+/** The solution was shown, not found: no stars, the streak starts over, on to the next puzzle. */
+function watched() {
+  game.auto = null;
+  game.solved = true;
+  const L = prog.level;
+  prog.streak[L] = 0;
+  prog.next[L] = (prog.next[L] ?? 0) + 1;
+  save();
+  scene.driveOut(() => {
+    $('#p-done-stars').textContent = '☆☆☆';
+    $('#p-done-text').textContent = `풀이 보기 · 최소 ${game.g.p.best}수`;
+    $('#p-done-note').textContent = '직접 풀어야 별과 연속 기록이 쌓입니다';
+    setTimeout(() => { $('#p-done').hidden = false; }, 500);
+  });
+  render();
 }
 
 // ---------- solving ----------
@@ -179,14 +229,17 @@ function render() {
   const s = P.stars(Math.max(g.used, 0), g.p.best);
   $('#p-stars').textContent = g.used <= g.p.best ? '★★★' : '★'.repeat(s) + '☆'.repeat(3 - s);
   $('#p-id').textContent = `${P.LEVELS[g.p.level - 1].name} · 문제 ${g.p.n + 1}/${P.count(g.p.level)}${prog.best[g.p.id] ? ` · 최고 ${'★'.repeat(prog.best[g.p.id])}` : ''}`;
-  $('#banner-text').innerHTML = game.solved ? '<b>탈출!</b>' : '차를 집어 <b>앞뒤로</b> 밀어 빨간 차의 길을 여세요';
+  $('#banner-text').innerHTML = game.auto ? `<b>풀이 보기</b> ${game.auto.i}/${game.auto.path.length}수` : game.solved ? '<b>탈출!</b>' : '차를 집어 <b>앞뒤로</b> 밀어 빨간 차의 길을 여세요';
   $('#b-undo').disabled = !g.history.length || game.solved;
   $('#b-reset').disabled = !g.history.length || game.solved;
-  $('#b-hint').disabled = game.solved;
+  $('#b-hint').disabled = game.solved || Boolean(game.auto);
+  $('#b-solve').disabled = game.solved || Boolean(game.auto);
+  if (game.auto) { $('#b-undo').disabled = true; $('#b-reset').disabled = true; }
 }
 $('#p-levels').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-level]');
   if (!b || b.disabled || game.drag) return;
+  stopAuto();
   load(Number(b.dataset.level));
 });
 
@@ -208,9 +261,10 @@ shell.attach({
 });
 
 $('#b-hint').addEventListener('click', hint);
+$('#b-solve').addEventListener('click', showSolution);
 $('#b-undo').addEventListener('click', undo);
 $('#b-reset').addEventListener('click', restart);
-$('#b-next').addEventListener('click', () => { if (!game.drag) next(); });
+$('#b-next').addEventListener('click', () => { if (!game.drag) { stopAuto(); next(); } });
 $('#p-next').addEventListener('click', () => load());
 addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); }
@@ -225,4 +279,4 @@ showSound();
 load();
 
 // Debug / test handle
-window.__parking = { game, scene, P, prog, hand: shell.injectHandFrame, load, next, undo, hint };
+window.__parking = { game, scene, P, prog, hand: shell.injectHandFrame, load, next, undo, hint, showSolution };

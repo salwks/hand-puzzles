@@ -157,6 +157,7 @@ export class ParkingScene extends Stage {
     this.hoverId = null;
     this.buildBoard();
     this.softenLight();
+    this.lightDesk();
     this.start();
   }
 
@@ -190,6 +191,25 @@ export class ParkingScene extends Stage {
       hdr.dispose();
       pmrem.dispose();
     });
+  }
+
+  /**
+   * The tray sits on a pale matte desk, as in photos of the real game. The desk is lightest under
+   * the tray and darkens towards the edges of the view, so the HUD in the corners stays readable.
+   */
+  lightDesk() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1024;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(512, 512, 0, 512, 512, 512);
+    // the plane is 90 units across: the light patch is ~14 units wide, fading out by ~40
+    grd.addColorStop(0, '#d9d3c8'); grd.addColorStop(0.1, '#cfc8bb'); grd.addColorStop(0.2, '#6f6a62');
+    grd.addColorStop(0.32, '#1c1a17'); grd.addColorStop(0.45, '#0d0c0a'); grd.addColorStop(1, '#0d0c0a');
+    g.fillStyle = grd; g.fillRect(0, 0, 1024, 1024);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.table.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, envMapIntensity: 0.4 });
+    this.table.position.y = -0.002;
   }
 
   buildBoard() {
@@ -281,14 +301,14 @@ export class ParkingScene extends Stage {
   }
 
   /** Move every car to its place in pos (gliding unless instant). */
-  sync(pos, instant = false) {
+  sync(pos, instant = false, dur = 0.22) {
     for (const car of pos.cars) {
       const o = this.cars.get(car.id);
       if (!o || o === this.held?.o) continue;
       const to = this.carCentre(car);
       if (instant || o.root.position.distanceTo(to) < 1e-3) { o.root.position.copy(to); continue; }
       const from = o.root.position.clone();
-      this.tween({ dur: 0.22, update: (k) => o.root.position.lerpVectors(from, to, easeOutCubic(k)) });
+      this.tween({ dur, update: (k) => o.root.position.lerpVectors(from, to, dur > 0.3 ? easeInOutCubic(k) : easeOutCubic(k)) });
     }
   }
 
