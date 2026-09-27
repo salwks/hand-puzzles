@@ -95,6 +95,7 @@ export class HandTracker {
     this.pinching = false;
     this.pinchStreak = 0;
     this.openSince = null;
+    this.closedOut = null;
     this.speed = 0;
     this.lastPalm = null;
     this.facingSince = null;
@@ -171,6 +172,7 @@ export class HandTracker {
     this.edgeSince = null;
     this.bias = [0, 0];
     this.lastOut = null;
+    this.closedOut = null;
     this.rebase = false;
   }
 
@@ -288,6 +290,7 @@ export class HandTracker {
     // each late sample yanking the roll by up to 30°, which the wrist ratchet read as extra turns.
     // Only the palm side (a slow, binary signal) is taken from it.
 
+    const wasPinching = this.pinching;
     this.updatePinch(pinchRatio, pinchDown, pinchUp, now);
 
     // Mirrored like a mirror image; only the active region of the frame maps to the screen.
@@ -330,14 +333,18 @@ export class HandTracker {
       out = this.lastOut;
       this.rebase = false;
     }
-    // Opening the fingers to let go moves the fingertips, the palm centre and the hand as a whole,
-    // and release is only confirmed ~140 ms later: logs showed pieces landing 25% of the screen
-    // away from where the player let go. So from the first frame the fingers start to open, the
-    // cursor stays where the pinch last was, until the release has gone through.
-    if (this.pinching && pinchRatio > pinchDown * 1.15 && this.lastOut) {
-      out = this.lastOut;
+    // Opening the fingers to let go moves the hand, and release is only confirmed ~140 ms later:
+    // logs showed pieces landing 25% of the screen away from where the player let go. Freezing
+    // the cursor as soon as the fingers loosened fixed that but cost more than it saved — a later
+    // log had the cursor frozen in 22 of 39 drags while the palm kept moving (up to half the
+    // screen), because a held pinch loosens mid-drag. So the cursor keeps following, and the
+    // release lands where the pinch last was firmly closed, before the fingers began to open.
+    if (this.pinching && pinchRatio <= pinchUp) this.closedOut = out;
+    if (wasPinching && !this.pinching && this.closedOut) {
+      out = this.closedOut;
       this.rebase = true;
     }
+    if (!this.pinching) this.closedOut = null;
     if (!this.pinching) this.bias = this.bias.map((b) => b * 0.9); // drift back to the true mapping once free
     this.lastOut = out;
     const x = clamp01(out[0]);

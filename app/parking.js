@@ -37,6 +37,7 @@ function load(level = prog.level, n = prog.next[level] ?? 0) {
   scene.clearHint();
   $('#p-done').hidden = true;
   save();
+  shell.log.event('puzzle', { id: p.id, board: p.board, best: p.best });
   render();
 }
 
@@ -53,7 +54,7 @@ function startDrag(x, y) {
   if (game.solved || game.auto) return true;
   const pos = game.g.pos;
   const id = scene.carAt(x, y, pos.cars.map((c) => c.id));
-  if (!id) return false;
+  if (!id) { shell.log.event('grab-empty', { x: Math.round(x), y: Math.round(y) }); return false; }
   const i = pos.cars.findIndex((c) => c.id === id);
   const origin = scene.planeAt(x, y);
   if (!origin) return false;
@@ -61,6 +62,7 @@ function startDrag(x, y) {
   game.drag = { i, car: pos.cars[i], origin, range, bumped: 0 };
   scene.setGlow(id, null);
   scene.hold(pos.cars[i], range);
+  shell.log.event('grab', { car: id, range, x: Math.round(x), y: Math.round(y) });
   sfx('lift', { vol: 0.3, rate: 1.1 });
   return true;
 }
@@ -86,7 +88,9 @@ function endDrag(x, y) {
   moveDrag(x, y);
   game.drag = null;
   const cells = scene.release();
-  if (cells && P.play(game.g, d.i, cells)) {
+  const ok = Boolean(cells) && P.play(game.g, d.i, cells);
+  shell.log.event('drop', { car: d.car.id, cells, moved: ok, x: Math.round(x), y: Math.round(y) });
+  if (ok) {
     sfx('knock', { vol: 0.35, rate: 1.3 });
     scene.clearHint();
     if (P.solved(game.g.pos)) win();
@@ -96,6 +100,7 @@ function endDrag(x, y) {
 
 function cancelDrag() {
   if (!game.drag) return;
+  shell.log.event('drag-cancel', { car: game.drag.car.id });
   game.drag = null;
   scene.dragTo(0);
   scene.release();
@@ -181,6 +186,7 @@ function watched() {
 
 function win() {
   game.solved = true;
+  shell.log.event('win', { id: game.g.p.id, used: game.g.used, best: game.g.p.best });
   const { p, used } = game.g;
   const stars = P.stars(used, p.best);
   prog.best[p.id] = Math.max(prog.best[p.id] ?? 0, stars);
