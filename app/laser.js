@@ -13,7 +13,9 @@ const $ = (sel) => document.querySelector(sel);
 const SAVE_KEY = 'laser-progress';
 const TWIST_STEP = (30 * Math.PI) / 180;
 const TWIST_MAX_SPEED = 0.8;
-const TAP_MS = 450;          // a pinch or click this short, that barely moved, is a tap: turn
+const TAP_MS = 450;          // a click this short, that barely moved, is a tap: turn
+const TAP_HAND_MS = 1200;    // a pinch this short that puts the token back where it was is a tap too
+const TAP_HAND_REACH = 0.9; // …and the hand stayed within about a square of where it pinched
 const TAP_MOVE = 0.3;        // …and moved less than this many squares
 const UNLOCK = 3;            // puzzles solved in a level (without 풀이 보기) to open the next
 
@@ -99,9 +101,11 @@ function moveDrag(x, y) {
   if (!d) return;
   scene.pointer = { x, y };
   const t = game.g.tokens[d.i];
-  if (!d.moved) {
-    const p = scene.planeAt(x, y);
-    if (p && d.at && Math.hypot(p.x - d.at.x, p.z - d.at.z) > TAP_MOVE) d.moved = true;
+  const p = scene.planeAt(x, y);
+  if (p && d.at) {
+    const far = Math.hypot(p.x - d.at.x, p.z - d.at.z);
+    d.far = Math.max(d.far ?? 0, far);
+    if (far > TAP_MOVE) d.moved = true;
   }
   if (d.moved && !t.fixed && !d.lifted) {
     d.lifted = true;
@@ -121,19 +125,26 @@ function endDrag(x, y) {
   game.drag = null;
   const g = game.g, t = g.tokens[d.i];
   scene.setGlow(d.i, null);
-  const quick = performance.now() - d.downT < (d.byHand ? TAP_MS * 2 : TAP_MS); // a pinch takes longer to open than a click
-  if (!d.moved && !d.turned && quick) {
-    // a tap turns the token a quarter
-    if (L.turn(g, d.i, 1)) { scene.showTurn(d.i, t.o); sfx('clack', { vol: 0.3, rate: 1.3 }); log.event('turn', { token: d.i, o: t.o, by: 'tap' }); }
+  const held = performance.now() - d.downT;
+  // Where it would land: a free square, the tray, or (over a taken square / nowhere) back where it was.
+  const cell = d.lifted ? d.cell : null;
+  const home = t.r === null ? 'tray' : { r: t.r, c: t.c };
+  const lands = cell ?? home;
+  const stays = JSON.stringify(lands) === JSON.stringify(home);
+  // A tap turns the token. A hand wobbles 30–60 px during a short pinch (a session log had three
+  // meant-as-taps lifted and put straight back), so a quick pinch that ends where it started counts
+  // as a tap however much it shook.
+  const tap = !d.turned && (d.byHand ? stays && held < TAP_HAND_MS && (d.far ?? 0) < TAP_HAND_REACH : !d.moved && held < TAP_MS);
+  if (d.lifted) scene.release();
+  if (tap) {
+    if (L.turn(g, d.i, 1)) { scene.showTurn(d.i, t.o); sfx('clack', { vol: 0.3, rate: 1.3 }); log.event('turn', { token: d.i, o: t.o, by: 'tap', ms: Math.round(held) }); }
     else toast('이 조각은 돌릴 수 없습니다', 1400);
   } else if (d.lifted) {
-    scene.release();
-    const cell = d.cell;
     let ok = false;
-    if (cell && cell !== 'tray') ok = L.place(g, d.i, cell.r, cell.c);
-    else if (cell === 'tray' || !cell) ok = t.r === null ? false : L.lift(g, d.i);
+    if (lands === 'tray') ok = t.r !== null && L.lift(g, d.i);
+    else if (!stays) ok = L.place(g, d.i, lands.r, lands.c);
     log.event('drop', { token: d.i, type: t.type, cell, placed: ok, o: t.o, x: Math.round(x), y: Math.round(y) });
-    sfx(cell && cell !== 'tray' ? 'knock' : 'slide', { vol: 0.3, rate: 1.3 });
+    sfx(lands !== 'tray' ? 'knock' : 'slide', { vol: 0.3, rate: 1.3 });
   }
   scene.sync(g);
   after();
