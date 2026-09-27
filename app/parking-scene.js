@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { Stage, NO_GLOW, applyGlow, damp, easeInOutCubic, easeOutCubic, clamp } from './stage.js';
 import { N, EXIT_ROW } from './parking-logic.js';
 
@@ -101,7 +102,7 @@ class Car {
       const map = o.material.map;
       o.material = wheel
         ? new THREE.MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 })
-        : new THREE.MeshPhysicalMaterial({ map, color: new THREE.Color(0.8, 0.8, 0.8), roughness: 0.22, metalness: 0.08, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 2.4 }); // a touch darker: the kit's pastels read as paint
+        : new THREE.MeshPhysicalMaterial({ map, color: new THREE.Color(0.8, 0.8, 0.8), roughness: 0.35, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.3 }); // a touch darker: the kit's pastels read as paint
       o.castShadow = true; o.receiveShadow = true;
       o.userData.car = car.id;
       this.mats.push(o.material);
@@ -148,16 +149,29 @@ export class ParkingScene extends Stage {
     this.start();
   }
 
+  /**
+   * Studio lighting: a photo-studio HDRI (Poly Haven "Studio Small 09", CC0) lights the scene
+   * and is what the clear coat reflects — its softboxes give the long highlights on the paint.
+   * The table lamp stays only as a faint key for soft contact shadows; the stage's rim and
+   * bounce lights go.
+   */
   softenLight() {
     this.keyLight.shadow.mapSize.set(2048, 2048);
     this.setLampScale(4.6);
-    this.keyLight.intensity *= 0.62; // the lamp was washing the pale wood and the cars out
-    this.renderer.toneMappingExposure = 0.88;
-    // enough room light for the clear coat to have something to reflect, not so much it flattens
-    this.scene.environmentIntensity = 0.42;
-    const fill = new THREE.DirectionalLight(0xffe9cc, 0.32);
-    fill.position.set(6, 5, 4);
-    this.scene.add(fill);
+    this.keyLight.intensity *= 0.22;
+    this.keyLight.color.set(0xffffff);
+    this.keyLight.penumbra = 1;
+    this.lights.rim.intensity = 0;
+    this.lights.bounce.intensity = 0;
+    this.renderer.toneMappingExposure = 0.95;
+    this.scene.environmentIntensity = 0.9;
+    new RGBELoader().load('assets/hdri/studio_small_09_1k.hdr', (hdr) => {
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.scene.environment = pmrem.fromEquirectangular(hdr).texture;
+      this.scene.environmentRotation = new THREE.Euler(0, 0.9, 0); // softboxes up and to the left, like the lamp
+      hdr.dispose();
+      pmrem.dispose();
+    });
   }
 
   buildBoard() {
