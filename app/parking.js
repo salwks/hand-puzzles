@@ -32,6 +32,7 @@ function load(level = prog.level, n = prog.next[level] ?? 0) {
   game.solved = false;
   game.drag = null;
   scene.setPosition(game.g.pos);
+  scene.setCard(game.g.pos, `${P.LEVELS[level - 1].name} ${p.n + 1}`, p.best);
   scene.clearHint();
   $('#p-done').hidden = true;
   save();

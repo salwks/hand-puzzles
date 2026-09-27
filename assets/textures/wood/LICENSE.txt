@@ -1,3 +1,0 @@
-Poly Haven textures, CC0:
-- oak_veneer_01 (https://polyhaven.com/a/oak_veneer_01)
-- wood_table_001 (https://polyhaven.com/a/wood_table_001)
