@@ -93,7 +93,13 @@ class Car {
     this.mats = [];
     m.traverse((o) => {
       if (!o.isMesh) return;
-      o.material = o.material.clone(); // each car glows on its own
+      // the kit ships one flat material; give the body a lacquered, clear-coated paint and
+      // leave the tyres matte rubber (each car gets its own, so each can glow on its own)
+      const wheel = /wheel/i.test(o.name) || /wheel/i.test(o.parent?.name ?? '');
+      const map = o.material.map;
+      o.material = wheel
+        ? new THREE.MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 })
+        : new THREE.MeshPhysicalMaterial({ map, color: new THREE.Color(0.8, 0.8, 0.8), roughness: 0.22, metalness: 0.08, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 2.4 }); // a touch darker: the kit's pastels read as paint
       o.castShadow = true; o.receiveShadow = true;
       o.userData.car = car.id;
       this.mats.push(o.material);
@@ -141,18 +147,19 @@ export class ParkingScene extends Stage {
 
   softenLight() {
     this.keyLight.shadow.mapSize.set(2048, 2048);
-    this.scene.environmentIntensity = 0.5;
-    const fill = new THREE.DirectionalLight(0xffe9cc, 0.6);
-    fill.position.set(6, 5, 4);
-    const front = new THREE.DirectionalLight(0xfff4e4, 0.3);
-    front.position.set(0, 3, 9);
-    this.scene.add(fill, front);
     this.setLampScale(4.6);
+    this.keyLight.intensity *= 0.62; // the lamp was washing the pale wood and the cars out
+    this.renderer.toneMappingExposure = 0.88;
+    // enough room light for the clear coat to have something to reflect, not so much it flattens
+    this.scene.environmentIntensity = 0.42;
+    const fill = new THREE.DirectionalLight(0xffe9cc, 0.32);
+    fill.position.set(6, 5, 4);
+    this.scene.add(fill);
   }
 
   buildBoard() {
     const g = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(N + 0.1, TOP, N + 0.1), new THREE.MeshStandardMaterial({ map: woodTexture('#c99c63', '#6b4526'), roughness: 0.62 }));
+    const base = new THREE.Mesh(new THREE.BoxGeometry(N + 0.1, TOP, N + 0.1), new THREE.MeshStandardMaterial({ map: woodTexture('#b58a55', '#5e3c20'), roughness: 0.66 }));
     base.position.y = TOP / 2; base.receiveShadow = true; base.castShadow = true;
     g.add(base);
     // grooves between the cells
