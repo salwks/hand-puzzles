@@ -257,6 +257,10 @@ export class Stage {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.frameCamera(w / h);
+    // a tall, narrow window pulls the camera far back: keep the fog behind the board, or the
+    // whole table fades into the background
+    const d = this.camera.position.length();
+    if (this.scene.fog && this.scene.fog.far < d + 14) { this.scene.fog.near = d + 4; this.scene.fog.far = d + 24; }
     this.applyShift();
     this.composer?.setSize(w, h);
   }

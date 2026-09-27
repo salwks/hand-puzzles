@@ -14,7 +14,9 @@ const LIFT = 0.28;       // how high a held car rides
 const COLORS = [0xe0a83a, 0x4a7fd6, 0x3f9f79, 0x8a6bd1, 0xd67f3e, 0x2f8fa6, 0xb8b04a, 0x6b8f3f, 0xa4577a, 0x5a6fa0, 0xc78f5a];
 const TRUCKS = [0x6d5a8a, 0x3c6e8f, 0x8a6a3c, 0x4f7a5a];
 // Kenney "Car Kit" (CC0): toy cars for two cells, trucks for three, a red one for A
-const CAR_MODELS = ['sedan', 'taxi', 'police', 'suv', 'van', 'hatchback-sports', 'suv-luxury', 'truck', 'sedan'];
+// (the plain sedan is red in the kit, so it's left out: only the car to get out is red; a few
+// repeats get a tint — never towards red — so neighbours differ)
+const CAR_MODELS = ['taxi', 'police', 'suv', 'van', 'hatchback-sports', 'suv-luxury', 'truck', 'van:1.25,0.75,1.15', 'suv:0.65,1,1.35', 'truck:0.85,0.85,0.85', 'hatchback-sports:0.8,1.1,0.6'];
 const TRUCK_MODELS = ['delivery', 'garbage-truck', 'firetruck', 'ambulance'];
 const RED_MODEL = 'sedan-sports';
 const MODEL_DIR = 'assets/models/cars/';
@@ -47,8 +49,8 @@ class Car {
     this.root = new THREE.Group();
     this.glow = NO_GLOW;
     this.offset = 0;
-    const name = car.id === 'A' ? RED_MODEL : car.len === 3 ? TRUCK_MODELS[i % TRUCK_MODELS.length] : CAR_MODELS[i % CAR_MODELS.length];
-    if (models?.[name]) { this.fromModel(models[name], car); return; }
+    const [name, tint] = (car.id === 'A' ? RED_MODEL : car.len === 3 ? TRUCK_MODELS[i % TRUCK_MODELS.length] : CAR_MODELS[i % CAR_MODELS.length]).split(':');
+    if (models?.[name]) { this.fromModel(models[name], car, tint ? tint.split(',').map(Number) : null); return; }
     const red = car.id === 'A', truck = car.len === 3;
     const color = red ? 0xc9352f : truck ? TRUCKS[i % TRUCKS.length] : COLORS[i % COLORS.length];
     this.paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.18 });
@@ -88,7 +90,7 @@ class Car {
   }
 
   /** A clone of a loaded model, turned to face +x and stretched to fill its cells. */
-  fromModel(src, car) {
+  fromModel(src, car, tint = null) {
     const m = src.clone(true);
     this.mats = [];
     m.traverse((o) => {
@@ -119,6 +121,7 @@ class Car {
     this.paint = this.mats[0];
     // under the warm lamp the kit's red reads orange: push the red car redder
     if (car.id === 'A') for (const mat of this.mats) mat.color.setRGB(1.05, 0.48, 0.48);
+    else if (tint) for (const mat of this.mats) if (mat.isMeshPhysicalMaterial) mat.color.setRGB(0.8 * tint[0], 0.8 * tint[1], 0.8 * tint[2]);
     if (!car.horiz) this.root.rotation.y = -Math.PI / 2;
   }
 }
@@ -128,7 +131,7 @@ let modelsPromise = null;
 export function loadCarModels() {
   if (modelsPromise) return modelsPromise;
   const loader = new GLTFLoader();
-  const names = [...new Set([...CAR_MODELS, ...TRUCK_MODELS, RED_MODEL])];
+  const names = [...new Set([...CAR_MODELS.map((n) => n.split(':')[0]), ...TRUCK_MODELS, RED_MODEL])];
   modelsPromise = Promise.all(names.map((n) => loader.loadAsync(`${MODEL_DIR}${n}.glb`).then((g) => [n, g.scene]).catch(() => [n, null])))
     .then((pairs) => Object.fromEntries(pairs.filter(([, s]) => s)));
   return modelsPromise;
@@ -352,9 +355,13 @@ export class ParkingScene extends Stage {
     const el = THREE.MathUtils.degToRad(60);
     const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
     const hw = N / 2 + 1.6, hd = N / 2 + 0.6;
-    const dist = Math.max(hw / (tanV * aspect * 0.8), (hd * Math.sin(el) + 0.8) / (tanV * 0.7), 8);
-    this.camera.position.set(0.5, Math.sin(el) * dist, Math.cos(el) * dist + 0.2);
-    this.camera.lookAt(0.5, 0, 0.35);
+    // a tall window: fill more of its width, and aim above the board so it sits low, in the
+    // space under the HUD instead of behind it
+    const tall = aspect < 0.9;
+    const dist = Math.max(hw / (tanV * aspect * (tall ? 0.94 : 0.8)), (hd * Math.sin(el) + 0.8) / (tanV * 0.7), 8);
+    const lift = tall ? dist * tanV * 0.28 : 0;
+    this.camera.position.set(0.5, Math.sin(el) * dist, Math.cos(el) * dist + 0.2 - lift);
+    this.camera.lookAt(0.5, 0, 0.35 - lift);
   }
 
   // ---------- frame ----------
