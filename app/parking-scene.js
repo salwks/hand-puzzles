@@ -158,13 +158,17 @@ export class ParkingScene extends Stage {
   softenLight() {
     this.keyLight.shadow.mapSize.set(2048, 2048);
     this.setLampScale(4.6);
-    this.keyLight.intensity *= 0.22;
+    this.keyLight.intensity *= 0.4;
     this.keyLight.color.set(0xffffff);
     this.keyLight.penumbra = 1;
     this.lights.rim.intensity = 0;
     this.lights.bounce.intensity = 0;
-    this.renderer.toneMappingExposure = 0.95;
-    this.scene.environmentIntensity = 0.9;
+    // Neutral tone mapping keeps the paint's colour and contrast (ACES flattened it to haze), no
+    // fog in a studio, and a little less ambient so the key's shadows give the cars their shape
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
+    this.scene.fog = null;
+    this.scene.environmentIntensity = 0.6;
     new RGBELoader().load('assets/hdri/studio_small_09_1k.hdr', (hdr) => {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       this.scene.environment = pmrem.fromEquirectangular(hdr).texture;

@@ -248,8 +248,7 @@ export class Stage {
     this.keyLight.shadow.camera.near = 3 * k;
     this.keyLight.shadow.camera.far = 18 * k;
     this.keyLight.shadow.camera.updateProjectionMatrix();
-    this.scene.fog.near = 15 * k;
-    this.scene.fog.far = 34 * k;
+    if (this.scene.fog) { this.scene.fog.near = 15 * k; this.scene.fog.far = 34 * k; }
   }
 
   resize() {
