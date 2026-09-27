@@ -5,22 +5,17 @@
 // (c − 2.5, ·, r − 2.5): row 0 is the far side.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { Stage, NO_GLOW, applyGlow, damp, easeInOutCubic, easeOutCubic, clamp } from './stage.js';
 import { N, EXIT_ROW } from './parking-logic.js';
 
 const TOP = 0.12;        // board surface height
 const LIFT = 0.28;       // how high a held car rides
-const COLORS = [0xe0a83a, 0x4a7fd6, 0x3f9f79, 0x8a6bd1, 0xd67f3e, 0x2f8fa6, 0xb8b04a, 0x6b8f3f, 0xa4577a, 0x5a6fa0, 0xc78f5a];
-const TRUCKS = [0x6d5a8a, 0x3c6e8f, 0x8a6a3c, 0x4f7a5a];
-// Kenney "Car Kit" (CC0): toy cars for two cells, trucks for three, a red one for A
-// (the plain sedan is red in the kit, so it's left out: only the car to get out is red; a few
-// repeats get a tint — never towards red — so neighbours differ)
-const CAR_MODELS = ['taxi', 'police', 'suv', 'van', 'hatchback-sports', 'suv-luxury', 'truck', 'van:1.25,0.75,1.15', 'suv:0.65,1,1.35', 'truck:0.85,0.85,0.85', 'hatchback-sports:0.8,1.1,0.6'];
-const TRUCK_MODELS = ['delivery', 'garbage-truck', 'firetruck', 'ambulance'];
-const RED_MODEL = 'sedan-sports';
-const MODEL_DIR = 'assets/models/cars/';
+// stains for the wooden cars: clear, saturated colours, none of them red (only the car to get
+// out is red)
+const STAINS = [0xe8b020, 0x2f6fd8, 0x2f9e6a, 0x7a52c8, 0x1e9bb0, 0xe07a1c, 0x5a6fa8, 0x9ab52a, 0xc2439a, 0x3b3f58];
+const TRUCK_STAINS = [0x2f6fd8, 0x2f9e6a, 0xe8b020, 0x7a52c8];
+const RED = 0xd8231c;
 const X = (c) => c - (N - 1) / 2;
 const Z = (r) => r - (N - 1) / 2;
 
@@ -76,8 +71,50 @@ const BLOT = (() => {
   return new THREE.CanvasTexture(c);
 })();
 
+// ---------- wooden toy cars ----------
+
+/** A grey version of the oak grain, for stains: tinting it gives a pure colour with the grain showing. */
+let stainGrain = null;
+function grainTexture() {
+  if (stainGrain) return stainGrain;
+  const img = new Image();
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  stainGrain = new THREE.CanvasTexture(c);
+  stainGrain.colorSpace = THREE.SRGBColorSpace;
+  stainGrain.wrapS = stainGrain.wrapT = THREE.RepeatWrapping;
+  stainGrain.anisotropy = 8;
+  img.onload = () => {
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0, 512, 512);
+    const d = g.getImageData(0, 0, 512, 512), px = d.data;
+    for (let k = 0; k < px.length; k += 4) {
+      const l = (0.3 * px[k] + 0.59 * px[k + 1] + 0.11 * px[k + 2]) / 255;
+      const v = Math.round(255 * (0.72 + 0.34 * (l - 0.55))); // light, with the grain kept faint
+      px[k] = px[k + 1] = px[k + 2] = Math.max(0, Math.min(255, v));
+    }
+    g.putImageData(d, 0, 0);
+    stainGrain.needsUpdate = true;
+  };
+  img.src = 'assets/textures/wood/oak_veneer_01_diff_1k.jpg';
+  return stainGrain;
+}
+let woodNormal = null;
+function oakNormal() {
+  if (!woodNormal) {
+    woodNormal = texLoader.load('assets/textures/wood/oak_veneer_01_nor_gl_1k.jpg');
+    woodNormal.wrapS = woodNormal.wrapT = THREE.RepeatWrapping;
+  }
+  return woodNormal;
+}
+const stained = (color) => new THREE.MeshPhysicalMaterial({
+  map: grainTexture(), normalMap: oakNormal(), normalScale: new THREE.Vector2(0.35, 0.35),
+  color, roughness: 0.55, clearcoat: 0.35, clearcoatRoughness: 0.35, // satin lacquer over the stain
+});
+let natural = null, darkWood = null;
+
 class Car {
-  constructor(car, i, models = null) {
+  constructor(car, i) {
     this.id = car.id;
     this.len = car.len;
     this.horiz = car.horiz;
@@ -88,92 +125,47 @@ class Car {
     this.blot.rotation.x = -Math.PI / 2;
     this.blot.scale.set(car.horiz ? car.len + 0.25 : 1.2, car.horiz ? 1.2 : car.len + 0.25, 1);
     this.blot.renderOrder = 1;
-    const [name, tint] = (car.id === 'A' ? RED_MODEL : car.len === 3 ? TRUCK_MODELS[i % TRUCK_MODELS.length] : CAR_MODELS[i % CAR_MODELS.length]).split(':');
-    if (models?.[name]) { this.fromModel(models[name], car, tint ? tint.split(',').map(Number) : null); return; }
-    const red = car.id === 'A', truck = car.len === 3;
-    const color = red ? 0xc9352f : truck ? TRUCKS[i % TRUCKS.length] : COLORS[i % COLORS.length];
-    this.paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.18 });
-    const dark = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.25, metalness: 0.2 });
-    const L = car.len - 0.14, W = 0.8;
-    // built along +x; the whole group turns for a vertical car
-    const body = new THREE.Mesh(new RoundedBoxGeometry(L, 0.3, W, 3, 0.1), this.paint);
-    body.position.y = 0.2;
-    const parts = [body];
+
+    // raw wood on the cars is oiled to a honey tone, so it stands apart from the pale floor
+    natural ??= woodMaterial('oak_veneer_01', { tint: 0xc98f52, rough: 0.8, normal: 0.5, clearcoat: 0.3 });
+    darkWood ??= woodMaterial('wood_table_001', { rough: 0.7, normal: 0.6, clearcoat: 0.3 });
+    const truck = car.len === 3;
+    const color = car.id === 'A' ? RED : truck ? TRUCK_STAINS[i % TRUCK_STAINS.length] : STAINS[i % STAINS.length];
+    this.paint = stained(color);
+    this.mats = [this.paint];
+
+    const L = car.len - 0.16, W = 0.78, WHEEL = 0.12;
+    const parts = [];
+    const block = (w, h, d, mat, x, y, radius = 0.06) => { const m = woodBlock(w, h, d, mat, { radius, scale: 1.4 }); m.position.set(x, y, 0); parts.push(m); return m; };
     if (truck) {
-      const cab = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.28, W * 0.92, 3, 0.08), this.paint);
-      cab.position.set(L / 2 - 0.4, 0.46, 0);
-      const glass = new THREE.Mesh(new RoundedBoxGeometry(0.12, 0.2, W * 0.8, 2, 0.04), dark);
-      glass.position.set(L / 2 - 0.1, 0.46, 0);
-      const box = new THREE.Mesh(new RoundedBoxGeometry(L - 0.85, 0.42, W * 0.95, 3, 0.06), new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 0.6 }));
-      box.position.set(-0.4, 0.5, 0);
-      parts.push(cab, glass, box);
+      // painted cab up front, a natural wooden cargo box behind it on a painted chassis
+      block(L, 0.16, W, this.paint, 0, WHEEL + 0.1);
+      block(0.72, 0.3, W * 0.96, this.paint, L / 2 - 0.36, WHEEL + 0.33);
+      block(0.26, 0.18, W * 0.8, natural, L / 2 - 0.5, WHEEL + 0.46, 0.05); // cab roof block, raw wood
+      const load = stained(new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.45)); // the box in a lighter wash of the cab's colour
+      this.mats.push(load);
+      block(L - 0.84, 0.46, W * 0.98, load, -0.38, WHEEL + 0.41, 0.05);
     } else {
-      const cabin = new THREE.Mesh(new RoundedBoxGeometry(L * 0.55, 0.24, W * 0.84, 3, 0.09), dark);
-      cabin.position.set(-0.05, 0.43, 0);
-      const roof = new THREE.Mesh(new RoundedBoxGeometry(L * 0.4, 0.06, W * 0.76, 2, 0.03), this.paint);
-      roof.position.set(-0.05, 0.56, 0);
-      parts.push(cabin, roof);
+      // a stained body with rounded ends and a raw-wood cabin on top, set back a little
+      block(L, 0.24, W, this.paint, 0, WHEEL + 0.14, 0.09);
+      block(L * 0.5, 0.2, W * 0.86, natural, -L * 0.06, WHEEL + 0.35, 0.07);
     }
-    // wheels peeking out under the body
-    const wheelGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.08, 16);
+    // four turned wooden wheels on dowel axles
+    const wheelGeo = new THREE.CylinderGeometry(WHEEL, WHEEL, 0.07, 24);
     wheelGeo.rotateX(Math.PI / 2);
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      const w = new THREE.Mesh(wheelGeo, dark);
-      w.position.set(sx * (L / 2 - 0.25), 0.1, sz * (W / 2 - 0.02));
-      parts.push(w);
+    const capGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.09, 12);
+    capGeo.rotateX(Math.PI / 2);
+    const ax = L / 2 - (truck ? 0.34 : 0.26);
+    for (const sx of truck ? [-1, 0, 1] : [-1, 1]) for (const sz of [-1, 1]) {
+      const w = new THREE.Mesh(wheelGeo, darkWood);
+      w.position.set(sx * ax, WHEEL, sz * (W / 2 + 0.02));
+      const cap = new THREE.Mesh(capGeo, natural);
+      cap.position.set(sx * ax, WHEEL, sz * (W / 2 + 0.04));
+      parts.push(w, cap);
     }
     for (const m of parts) { m.castShadow = true; m.receiveShadow = true; m.userData.car = car.id; this.root.add(m); }
-    this.body = body;
-    this.mats = [this.paint];
     if (!car.horiz) this.root.rotation.y = -Math.PI / 2; // +x → +z (down the board)
   }
-
-  /** A clone of a loaded model, turned to face +x and stretched to fill its cells. */
-  fromModel(src, car, tint = null) {
-    const m = src.clone(true);
-    this.mats = [];
-    m.traverse((o) => {
-      if (!o.isMesh) return;
-      // the kit ships one flat material; give the body a lacquered, clear-coated paint and
-      // leave the tyres matte rubber (each car gets its own, so each can glow on its own)
-      const wheel = /wheel/i.test(o.name) || /wheel/i.test(o.parent?.name ?? '');
-      const map = o.material.map;
-      o.material = wheel
-        ? new THREE.MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 })
-        : new THREE.MeshPhysicalMaterial({ map, color: new THREE.Color(0.95, 0.95, 0.95), roughness: 0.35, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.3 }); // a touch darker: the kit's pastels read as paint
-      o.castShadow = true; o.receiveShadow = true;
-      o.userData.car = car.id;
-      this.mats.push(o.material);
-    });
-    // the kit's cars run along +z: turn them to +x, then fit length and width to the cells
-    const holder = new THREE.Group();
-    m.rotation.y = Math.PI / 2;
-    holder.add(m);
-    const box = new THREE.Box3().setFromObject(holder);
-    const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-    const L = car.len - 0.1, W = 0.9;
-    // tall vans and trucks are kept low, or from this angle they'd tower over the next row
-    const sx = L / size.x, sz = W / size.z, sy = Math.min(Math.min(sx, sz) * 1.08, 0.72 / size.y);
-    m.position.set(-c.x, -box.min.y, -c.z);
-    holder.scale.set(sx, sy, sz);
-    this.root.add(holder);
-    this.paint = this.mats[0];
-    // under the warm lamp the kit's red reads orange: push the red car redder
-    if (car.id === 'A') for (const mat of this.mats) mat.color.setRGB(1.05, 0.48, 0.48);
-    else if (tint) for (const mat of this.mats) if (mat.isMeshPhysicalMaterial) mat.color.setRGB(0.95 * tint[0], 0.95 * tint[1], 0.95 * tint[2]);
-    if (!car.horiz) this.root.rotation.y = -Math.PI / 2;
-  }
-}
-
-/** Load the car models once; resolves to { name: scene } (empty if they can't be loaded). */
-let modelsPromise = null;
-export function loadCarModels() {
-  if (modelsPromise) return modelsPromise;
-  const loader = new GLTFLoader();
-  const names = [...new Set([...CAR_MODELS.map((n) => n.split(':')[0]), ...TRUCK_MODELS, RED_MODEL])];
-  modelsPromise = Promise.all(names.map((n) => loader.loadAsync(`${MODEL_DIR}${n}.glb`).then((g) => [n, g.scene]).catch(() => [n, null])))
-    .then((pairs) => Object.fromEntries(pairs.filter(([, s]) => s)));
-  return modelsPromise;
 }
 
 export class ParkingScene extends Stage {
@@ -287,7 +279,7 @@ export class ParkingScene extends Stage {
     for (const b of this.bollards) this.scene.remove(b);
     this.bollards = [];
     pos.cars.forEach((car, i) => {
-      const o = new Car(car, i, this.models);
+      const o = new Car(car, i);
       this.cars.set(car.id, o);
       this.scene.add(o.root, o.blot);
     });
