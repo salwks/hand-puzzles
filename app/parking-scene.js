@@ -24,23 +24,57 @@ const MODEL_DIR = 'assets/models/cars/';
 const X = (c) => c - (N - 1) / 2;
 const Z = (r) => r - (N - 1) / 2;
 
-function woodTexture(light, dark, lines = 60) {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 512;
-  const g = c.getContext('2d');
-  g.fillStyle = light; g.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < lines; i++) {
-    const y = Math.random() * 512;
-    g.strokeStyle = dark; g.globalAlpha = 0.05 + Math.random() * 0.12; g.lineWidth = 1 + Math.random() * 3;
-    g.beginPath(); g.moveTo(0, y);
-    for (let x = 0; x <= 512; x += 32) g.lineTo(x, y + Math.sin(x * 0.02 + i) * 4);
-    g.stroke();
-  }
-  g.globalAlpha = 1;
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+// ---------- real wood (Poly Haven, CC0): colour, normal and roughness maps ----------
+
+const texLoader = new THREE.TextureLoader();
+function woodMaterial(name, { tint = 0xffffff, rough = 1, normal = 1, clearcoat = 0 } = {}) {
+  const dir = 'assets/textures/wood/';
+  const load = (m, srgb) => {
+    const t = texLoader.load(`${dir}${name}_${m}_1k.jpg`);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  return new THREE.MeshPhysicalMaterial({
+    map: load('diff', true), normalMap: load('nor_gl', false), roughnessMap: load('rough', false),
+    color: tint, roughness: rough, normalScale: new THREE.Vector2(normal, normal),
+    clearcoat, clearcoatRoughness: 0.25,
+  });
 }
+
+/**
+ * A rounded wooden block whose texture keeps real-world scale on every face (the grain doesn't
+ * stretch along a long rim): UVs are projected from the block's size, `scale` metres per repeat.
+ */
+function woodBlock(w, h, d, material, { radius = 0.03, scale = 2.2, grainAlongZ = false } = {}) {
+  const g = new RoundedBoxGeometry(w, h, d, 3, radius);
+  const pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const ax = Math.abs(nor.getX(i)), ay = Math.abs(nor.getY(i)), az = Math.abs(nor.getZ(i));
+    let u, v;
+    if (ay >= ax && ay >= az) { u = grainAlongZ ? z : x; v = grainAlongZ ? x : z; }
+    else if (ax >= az) { u = z; v = y; }
+    else { u = x; v = y; }
+    uv.setXY(i, u / scale + 0.37, v / scale + 0.61);
+  }
+  uv.needsUpdate = true;
+  const m = new THREE.Mesh(g, material);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+
+// a soft dark blot under each car: the contact shadow that grounds it (cheap ambient occlusion)
+const BLOT = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(64, 64, 8, 64, 64, 64);
+  grd.addColorStop(0, 'rgba(0,0,0,0.9)'); grd.addColorStop(0.55, 'rgba(0,0,0,0.5)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
 
 class Car {
   constructor(car, i, models = null) {
@@ -50,6 +84,10 @@ class Car {
     this.root = new THREE.Group();
     this.glow = NO_GLOW;
     this.offset = 0;
+    this.blot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: BLOT, transparent: true, depthWrite: false, opacity: 0.55 }));
+    this.blot.rotation.x = -Math.PI / 2;
+    this.blot.scale.set(car.horiz ? car.len + 0.25 : 1.2, car.horiz ? 1.2 : car.len + 0.25, 1);
+    this.blot.renderOrder = 1;
     const [name, tint] = (car.id === 'A' ? RED_MODEL : car.len === 3 ? TRUCK_MODELS[i % TRUCK_MODELS.length] : CAR_MODELS[i % CAR_MODELS.length]).split(':');
     if (models?.[name]) { this.fromModel(models[name], car, tint ? tint.split(',').map(Number) : null); return; }
     const red = car.id === 'A', truck = car.len === 3;
@@ -102,7 +140,7 @@ class Car {
       const map = o.material.map;
       o.material = wheel
         ? new THREE.MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 })
-        : new THREE.MeshPhysicalMaterial({ map, color: new THREE.Color(0.8, 0.8, 0.8), roughness: 0.35, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.3 }); // a touch darker: the kit's pastels read as paint
+        : new THREE.MeshPhysicalMaterial({ map, color: new THREE.Color(0.95, 0.95, 0.95), roughness: 0.35, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.3 }); // a touch darker: the kit's pastels read as paint
       o.castShadow = true; o.receiveShadow = true;
       o.userData.car = car.id;
       this.mats.push(o.material);
@@ -122,7 +160,7 @@ class Car {
     this.paint = this.mats[0];
     // under the warm lamp the kit's red reads orange: push the red car redder
     if (car.id === 'A') for (const mat of this.mats) mat.color.setRGB(1.05, 0.48, 0.48);
-    else if (tint) for (const mat of this.mats) if (mat.isMeshPhysicalMaterial) mat.color.setRGB(0.8 * tint[0], 0.8 * tint[1], 0.8 * tint[2]);
+    else if (tint) for (const mat of this.mats) if (mat.isMeshPhysicalMaterial) mat.color.setRGB(0.95 * tint[0], 0.95 * tint[1], 0.95 * tint[2]);
     if (!car.horiz) this.root.rotation.y = -Math.PI / 2;
   }
 }
@@ -158,7 +196,10 @@ export class ParkingScene extends Stage {
   softenLight() {
     this.keyLight.shadow.mapSize.set(2048, 2048);
     this.setLampScale(4.6);
-    this.keyLight.intensity *= 0.4;
+    this.keyLight.intensity *= 0.3;
+    this.keyLight.position.set(-1.6, 11, 2.4); // nearly overhead: short shadows that don't hide the next car
+    this.keyLight.target.position.set(0.3, 0, 0);
+    this.keyLight.angle = 0.75;
     this.keyLight.color.set(0xffffff);
     this.keyLight.penumbra = 1;
     this.lights.rim.intensity = 0;
@@ -168,7 +209,7 @@ export class ParkingScene extends Stage {
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.scene.fog = null;
-    this.scene.environmentIntensity = 0.6;
+    this.scene.environmentIntensity = 0.75;
     new RGBELoader().load('assets/hdri/studio_small_09_1k.hdr', (hdr) => {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       this.scene.environment = pmrem.fromEquirectangular(hdr).texture;
@@ -180,28 +221,31 @@ export class ParkingScene extends Stage {
 
   buildBoard() {
     const g = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(N + 0.1, TOP, N + 0.1), new THREE.MeshStandardMaterial({ map: woodTexture('#b58a55', '#5e3c20'), roughness: 0.66 }));
-    base.position.y = TOP / 2; base.receiveShadow = true; base.castShadow = true;
+    // the tray floor: light oak veneer, satin
+    const oak = woodMaterial('oak_veneer_01', { rough: 0.9, normal: 0.6, clearcoat: 0.25 });
+    const base = woodBlock(N + 0.1, TOP, N + 0.1, oak, { radius: 0.02, scale: 3.2 });
+    base.position.y = TOP / 2;
     g.add(base);
-    // grooves between the cells
-    const grooveMat = new THREE.MeshBasicMaterial({ color: 0x5a3a20, transparent: true, opacity: 0.45 });
+    // shallow grooves between the cells, as routed into the veneer
+    const grooveMat = new THREE.MeshStandardMaterial({ color: 0x3b2614, roughness: 0.9, transparent: true, opacity: 0.35 });
     for (let i = 1; i < N; i++) {
-      const a = new THREE.Mesh(new THREE.PlaneGeometry(0.025, N), grooveMat);
+      const a = new THREE.Mesh(new THREE.PlaneGeometry(0.018, N), grooveMat);
       a.rotation.x = -Math.PI / 2; a.position.set(i - N / 2, TOP + 0.001, 0);
-      const b = new THREE.Mesh(new THREE.PlaneGeometry(N, 0.025), grooveMat);
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(N, 0.018), grooveMat);
       b.rotation.x = -Math.PI / 2; b.position.set(0, TOP + 0.001, i - N / 2);
+      a.receiveShadow = b.receiveShadow = true;
       g.add(a, b);
     }
-    // the rim, with the exit gap on the right of the exit row
-    const rimMat = new THREE.MeshStandardMaterial({ map: woodTexture('#7a5031', '#3c2414', 40), roughness: 0.55 });
-    const rim = (w, d, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.36, d), rimMat); m.position.set(x, 0.18, z); m.castShadow = m.receiveShadow = true; g.add(m); };
+    // the rim: darker varnished hardwood with rounded edges, and the exit gap on the right
+    const walnut = woodMaterial('wood_table_001', { rough: 0.75, normal: 0.8, clearcoat: 0.6 });
+    const rim = (w, d, x, z, alongZ) => { const m = woodBlock(w, 0.36, d, walnut, { radius: 0.05, scale: 2.4, grainAlongZ: alongZ }); m.position.set(x, 0.18, z); g.add(m); };
     const R = 0.34, H = N / 2 + R / 2;
-    rim(N + 2 * R, R, 0, -H);
-    rim(N + 2 * R, R, 0, H);
-    rim(R, N, -H, 0);
+    rim(N + 2 * R, R, 0, -H, false);
+    rim(N + 2 * R, R, 0, H, false);
+    rim(R, N, -H, 0, true);
     const gapTop = Z(EXIT_ROW) - 0.5, gapBottom = Z(EXIT_ROW) + 0.5;
-    rim(R, gapTop + N / 2, H, (-N / 2 + gapTop) / 2);
-    rim(R, N / 2 - gapBottom, H, (gapBottom + N / 2) / 2);
+    rim(R, gapTop + N / 2, H, (-N / 2 + gapTop) / 2, true);
+    rim(R, N / 2 - gapBottom, H, (gapBottom + N / 2) / 2, true);
     // the road out, and the barrier arm across it
     const road = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.04, 1), new THREE.MeshStandardMaterial({ color: 0x3a3632, roughness: 0.9 }));
     road.position.set(H + 1.1, 0.02, Z(EXIT_ROW)); road.receiveShadow = true;
@@ -238,14 +282,14 @@ export class ParkingScene extends Stage {
 
   /** Build the cars (and bollards) for a position. */
   setPosition(pos) {
-    for (const c of this.cars.values()) this.scene.remove(c.root);
+    for (const c of this.cars.values()) { this.scene.remove(c.root); this.scene.remove(c.blot); }
     this.cars.clear();
     for (const b of this.bollards) this.scene.remove(b);
     this.bollards = [];
     pos.cars.forEach((car, i) => {
       const o = new Car(car, i, this.models);
       this.cars.set(car.id, o);
-      this.scene.add(o.root);
+      this.scene.add(o.root, o.blot);
     });
     for (const [r, c] of pos.walls) {
       const b = new THREE.Group();
@@ -391,7 +435,12 @@ export class ParkingScene extends Stage {
       to.y += LIFT;
       h.o.root.position.lerp(to, damp(24, dt));
     }
-    for (const o of this.cars.values()) for (const m of o.mats) if (m.emissive) applyGlow(m, o.glow, wave, 0.6);
+    for (const o of this.cars.values()) {
+      for (const m of o.mats) if (m.emissive) applyGlow(m, o.glow, wave, 0.6);
+      const p = o.root.position;
+      o.blot.position.set(p.x, TOP + 0.003, p.z);
+      o.blot.material.opacity = 0.55 * clamp(1 - (p.y - TOP) / 0.35, 0.25, 1);
+    }
     if (this.hintArrow.visible) this.hintArrow.material.opacity = 0.55 + 0.3 * wave;
   }
 
