@@ -4,7 +4,7 @@
 // sideways drift and the camera's slant don't matter. A slide of any length is one move.
 // Three puzzles in a row with two stars or more open the next level.
 import * as P from './parking-logic.js';
-import { ParkingScene } from './parking-scene.js';
+import { ParkingScene, loadCarModels } from './parking-scene.js';
 import { createShell } from './shell.js';
 import { sfx, unlockSound, isMuted, setMuted } from './sound.js';
 import { createFx } from './fx.js';
@@ -221,6 +221,8 @@ const showSound = () => { soundBtn.textContent = isMuted() ? '소리 꺼짐' : '
 soundBtn.addEventListener('click', () => { unlockSound(); setMuted(!isMuted()); showSound(); });
 showSound();
 
+// the toy car models first (a plain car stands in for any that fail to load)
+scene.models = await loadCarModels();
 load();
 
 // Debug / test handle

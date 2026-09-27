@@ -5,6 +5,7 @@
 // (c − 2.5, ·, r − 2.5): row 0 is the far side.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Stage, NO_GLOW, applyGlow, damp, easeInOutCubic, easeOutCubic, clamp } from './stage.js';
 import { N, EXIT_ROW } from './parking-logic.js';
 
@@ -12,6 +13,11 @@ const TOP = 0.12;        // board surface height
 const LIFT = 0.28;       // how high a held car rides
 const COLORS = [0xe0a83a, 0x4a7fd6, 0x3f9f79, 0x8a6bd1, 0xd67f3e, 0x2f8fa6, 0xb8b04a, 0x6b8f3f, 0xa4577a, 0x5a6fa0, 0xc78f5a];
 const TRUCKS = [0x6d5a8a, 0x3c6e8f, 0x8a6a3c, 0x4f7a5a];
+// Kenney "Car Kit" (CC0): toy cars for two cells, trucks for three, a red one for A
+const CAR_MODELS = ['sedan', 'taxi', 'police', 'suv', 'van', 'hatchback-sports', 'suv-luxury', 'truck', 'sedan'];
+const TRUCK_MODELS = ['delivery', 'garbage-truck', 'firetruck', 'ambulance'];
+const RED_MODEL = 'sedan-sports';
+const MODEL_DIR = 'assets/models/cars/';
 const X = (c) => c - (N - 1) / 2;
 const Z = (r) => r - (N - 1) / 2;
 
@@ -34,11 +40,15 @@ function woodTexture(light, dark, lines = 60) {
 }
 
 class Car {
-  constructor(car, i) {
+  constructor(car, i, models = null) {
     this.id = car.id;
     this.len = car.len;
     this.horiz = car.horiz;
     this.root = new THREE.Group();
+    this.glow = NO_GLOW;
+    this.offset = 0;
+    const name = car.id === 'A' ? RED_MODEL : car.len === 3 ? TRUCK_MODELS[i % TRUCK_MODELS.length] : CAR_MODELS[i % CAR_MODELS.length];
+    if (models?.[name]) { this.fromModel(models[name], car); return; }
     const red = car.id === 'A', truck = car.len === 3;
     const color = red ? 0xc9352f : truck ? TRUCKS[i % TRUCKS.length] : COLORS[i % COLORS.length];
     this.paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.18 });
@@ -73,10 +83,49 @@ class Car {
     }
     for (const m of parts) { m.castShadow = true; m.receiveShadow = true; m.userData.car = car.id; this.root.add(m); }
     this.body = body;
+    this.mats = [this.paint];
     if (!car.horiz) this.root.rotation.y = -Math.PI / 2; // +x → +z (down the board)
-    this.glow = NO_GLOW;
-    this.offset = 0; // live drag offset in cells along its axis
   }
+
+  /** A clone of a loaded model, turned to face +x and stretched to fill its cells. */
+  fromModel(src, car) {
+    const m = src.clone(true);
+    this.mats = [];
+    m.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = o.material.clone(); // each car glows on its own
+      o.castShadow = true; o.receiveShadow = true;
+      o.userData.car = car.id;
+      this.mats.push(o.material);
+    });
+    // the kit's cars run along +z: turn them to +x, then fit length and width to the cells
+    const holder = new THREE.Group();
+    m.rotation.y = Math.PI / 2;
+    holder.add(m);
+    const box = new THREE.Box3().setFromObject(holder);
+    const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    const L = car.len - 0.1, W = 0.9;
+    // tall vans and trucks are kept low, or from this angle they'd tower over the next row
+    const sx = L / size.x, sz = W / size.z, sy = Math.min(Math.min(sx, sz) * 1.08, 0.72 / size.y);
+    m.position.set(-c.x, -box.min.y, -c.z);
+    holder.scale.set(sx, sy, sz);
+    this.root.add(holder);
+    this.paint = this.mats[0];
+    // under the warm lamp the kit's red reads orange: push the red car redder
+    if (car.id === 'A') for (const mat of this.mats) mat.color.setRGB(1.05, 0.48, 0.48);
+    if (!car.horiz) this.root.rotation.y = -Math.PI / 2;
+  }
+}
+
+/** Load the car models once; resolves to { name: scene } (empty if they can't be loaded). */
+let modelsPromise = null;
+export function loadCarModels() {
+  if (modelsPromise) return modelsPromise;
+  const loader = new GLTFLoader();
+  const names = [...new Set([...CAR_MODELS, ...TRUCK_MODELS, RED_MODEL])];
+  modelsPromise = Promise.all(names.map((n) => loader.loadAsync(`${MODEL_DIR}${n}.glb`).then((g) => [n, g.scene]).catch(() => [n, null])))
+    .then((pairs) => Object.fromEntries(pairs.filter(([, s]) => s)));
+  return modelsPromise;
 }
 
 export class ParkingScene extends Stage {
@@ -166,7 +215,7 @@ export class ParkingScene extends Stage {
     for (const b of this.bollards) this.scene.remove(b);
     this.bollards = [];
     pos.cars.forEach((car, i) => {
-      const o = new Car(car, i);
+      const o = new Car(car, i, this.models);
       this.cars.set(car.id, o);
       this.scene.add(o.root);
     });
@@ -310,7 +359,7 @@ export class ParkingScene extends Stage {
       to.y += LIFT;
       h.o.root.position.lerp(to, damp(24, dt));
     }
-    for (const o of this.cars.values()) applyGlow(o.paint, o.glow, wave, 0.6);
+    for (const o of this.cars.values()) for (const m of o.mats) if (m.emissive) applyGlow(m, o.glow, wave, 0.6);
     if (this.hintArrow.visible) this.hintArrow.material.opacity = 0.55 + 0.3 * wave;
   }
 
