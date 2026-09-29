@@ -1,6 +1,6 @@
 // 도미노 미로: the game page. A puzzle from domino-logic.js goes on the 3D board (domino-scene.js).
 // The player's dominoes are picked up by pinch or mouse and set on a free square (or back in the
-// tray); a quick tap, a wrist twist while holding (a ratchet: each clear twist is one 45° step),
+// tray); a quick tap, the wrist while holding (its angle since the pinch, snapped to 45° steps),
 // or the mouse wheel turns a piece. A tap on the start domino — or the 밀기 button — pushes it,
 // and the chain plays with the engine's timing; if it fails, the spot where it stopped is marked
 // and everything stands back up.
@@ -12,8 +12,14 @@ import { createFx } from './fx.js';
 
 const $ = (sel) => document.querySelector(sel);
 const SAVE_KEY = 'domino-progress';
-const TWIST_STEP = (26 * Math.PI) / 180;
-const TWIST_MAX_SPEED = 0.8;
+// Wrist turning snaps to 45° steps. The wrist's angle since the pinch sets the domino's direction
+// (30° of wrist per 45° step, as far as a wrist comfortably turns); a boundary must be passed by a
+// margin before it flips, and the direction freezes while the fingers open to let go. A session
+// log with the old ratchet (a step per 26° of twist, a smooth lean in between) had players twist
+// ~65–90° for a quarter turn, relax while still holding, and the piece stepping back and forth.
+const TWIST_STEP = (30 * Math.PI) / 180;
+const TWIST_MARGIN = 0.2;       // of a step: hysteresis at each boundary
+const TWIST_MAX_SPEED = 0.8;    // screen-widths/s: a sweeping hand blurs the roll, so it's ignored
 const TAP_MS = 450;          // a click this short, that barely moved, is a tap
 const TAP_HAND_MS = 1200;    // a pinch this short that ends where it started is a tap too
 const TAP_HAND_REACH = 0.9;  // …if the hand stayed within about a square
@@ -78,7 +84,13 @@ function push() {
   if (game.drag || game.solved || game.auto || game.push === 'playing') return;
   standUp();
   const st = D.status(game.g);
-  if (st.unplaced) { toast(`트레이의 도미노 ${st.unplaced}개를 먼저 판에 세우세요`, 2000); return; }
+  if (st.unplaced) {
+    toast(`트레이의 도미노 ${st.unplaced}개를 먼저 판에 세우세요`, 2600);
+    bigSay(`도미노 ${st.unplaced}개 남음`);
+    for (const i of mine()) if (game.g.tokens[i].r === null) scene.setGlow(i, { color: 0xe0a83a, intensity: 0.6, pulse: true });
+    setTimeout(() => { for (const i of mine()) if (scene.pieces[i]?.glow.color === 0xe0a83a) scene.setGlow(i, null); }, 2400);
+    return;
+  }
   game.push = 'playing';
   game.pushes++;
   scene.clearHint();
@@ -116,7 +128,7 @@ function startDrag(x, y, frame = null) {
   const t = game.g.tokens[i];
   game.drag = {
     i, at: scene.planeAt(x, y), downT: performance.now(), moved: false, lifted: false, cell: null, far: 0,
-    byHand: Boolean(frame), rollPrev: frame?.roll ?? 0, twist: 0, turned: 0, returnDir: 0, returnBudget: 0,
+    byHand: Boolean(frame), roll0: frame?.roll ?? null, o0: t.o, steps: 0, turned: 0,
   };
   scene.clearHint();
   scene.setGlow(i, { color: 0x3f7fe6, intensity: 0.25, pulse: false });
@@ -157,8 +169,10 @@ function endDrag(x, y) {
   // a quick pinch that ends where it started is a tap, however much the hand shook
   const tap = !d.turned && (d.byHand ? stays && held < TAP_HAND_MS && d.far < TAP_HAND_REACH : !d.moved && held < TAP_MS);
   if (d.lifted) scene.release();
+  // the start domino can't move: letting go of it — a tap, a long pinch or a push-like drag —
+  // pushes it (unless its direction is open, when a tap turns it)
+  if (t.type === 'start' && (!t.turnable || (d.moved && !d.turned))) { scene.sync(g); push(); return; }
   if (tap) {
-    if (t.type === 'start' && !t.turnable) { scene.sync(g); push(); return; }
     if (D.turn(g, d.i, 1)) { scene.showTurn(d.i, t); sfx('clack', { vol: 0.3, rate: 1.3 }); log.event('turn', { piece: d.i, o: t.o, by: 'tap', ms: Math.round(held) }); }
     else toast('이 조각은 돌릴 수 없습니다', 1400);
   } else if (d.lifted) {
@@ -196,28 +210,24 @@ function turnBy(i, by, how) {
   return true;
 }
 
-// wrist twist while holding: a ratchet, one 45° step per clear twist
+// wrist twist while holding: the direction follows the wrist, in 45° steps
 function onHandPose(frame) {
   const d = game.drag;
   if (!d || !d.byHand || frame.roll === undefined || frame.roll === null) return;
-  const dRoll = frame.roll - d.rollPrev;
-  d.rollPrev = frame.roll;
-  if ((frame.speed ?? 0) < TWIST_MAX_SPEED) {
-    if (d.returnDir && Math.sign(dRoll) === d.returnDir && d.returnBudget > 0) {
-      const used = Math.min(d.returnBudget, Math.abs(dRoll));
-      d.returnBudget -= used;
-      d.twist += dRoll - used * d.returnDir;
-    } else d.twist += dRoll;
-  } else d.twist *= 0.8;
-  if (Math.abs(d.twist) >= TWIST_STEP) {
-    const dir = Math.sign(d.twist);
-    turnBy(d.i, dir, 'wrist');
-    d.returnDir = -dir;
-    d.returnBudget = TWIST_STEP * 1.1;
-    d.twist = 0;
-  }
   const t = game.g.tokens[d.i];
-  if (t.turnable && t.type !== 'pivot') scene.showTurn(d.i, t, Math.max(-TWIST_STEP, Math.min(TWIST_STEP, d.twist)) * 0.5);
+  if (!t.turnable || t.type === 'pivot') return;
+  if (d.roll0 === null) d.roll0 = frame.roll;
+  if ((frame.speed ?? 0) > TWIST_MAX_SPEED) return;
+  // letting go: the fingers open and the wrist often turns with them — keep what was set
+  if (frame.pinchRatio !== undefined && frame.pinchRatio > frame.pinchDown * 1.15) return;
+  const x = (frame.roll - d.roll0) / TWIST_STEP;
+  let k = d.steps;
+  while (x > k + 0.5 + TWIST_MARGIN) k++;
+  while (x < k - 0.5 - TWIST_MARGIN) k--;
+  if (k === d.steps) return;
+  const by = k - d.steps;
+  d.steps = k;
+  turnBy(d.i, by, 'wrist'); // clockwise wrist = clockwise domino
 }
 
 // ---------- solving ----------
