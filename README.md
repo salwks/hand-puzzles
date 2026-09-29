@@ -15,6 +15,7 @@
 - **주차장 탈출** (`parking.html`) — 6×6 슬라이딩 퍼즐: 차를 집어 제 방향으로만 밀어 빨간 차를 출구로. 문제는 Michael Fogleman의 Rush Hour 데이터베이스(MIT, https://github.com/fogleman/rush)에서 단계별로 고른 2,659개(`tools/pick-parking.mjs` → `app/parking-db.js`), 최소 수·힌트는 브라우저 안 BFS 풀이기. 규칙 엔진 `app/parking-logic.js`, 테스트 `tools/test-parking-logic.mjs`. 실물 보드게임처럼 밝은 회색 플라스틱 판(솟은 칸 타일, 오른쪽 셋째 줄 출구, 앞쪽 서랍의 문제 카드)과 옆모습을 조형한 광택 플라스틱 승용차·골 파인 짐칸 트럭. 조명: Poly Haven "Studio Small 09" HDRI (CC0, `assets/hdri/`).
 - **레이저 미로** (`laser.html`) — ThinkFun Laser Maze 규칙의 5×5 빛 꺾기 퍼즐: 조각(목표·거울, 양면 거울, 빔 분할기, 통과점, 칸 막이)을 핀치로 놓고, 살짝 집었다 놓거나 손목을 비틀어 돌립니다. 빛은 실시간으로 추적. 문제는 빛을 따라가는 탐색으로 즉석 생성하며 답이 하나뿐인 것만 냅니다(입문·초급·중급·고급). 규칙 엔진 `app/laser-logic.js`, 테스트 `tools/test-laser-logic.mjs`(무차별 대입과 대조). 조명·책상은 주차장 탈출과 공유(`app/studio.js`).
 - **도미노 미로** (`domino.html`) — ThinkFun Domino Maze에서 착안한 6×6 도미노 사슬 퍼즐(규칙은 자체 정의): 8방향 도미노는 45°까지만 꺾어 이어지고, 회전판은 90° 꺾고, 막이에서 멈춥니다. 목표물 I·II·III을 순서대로, 도미노는 모두 쓰러뜨리면 성공. 도미노를 핀치로 세우고 살짝 집었다 놓거나 손목을 비틀어 45°씩 돌린 뒤, 빨간 시작 도미노를 살짝 집어 밉니다. 문제는 사슬을 따라가는 탐색으로 즉석 생성하며 답이 하나뿐인 것만 냅니다. 규칙 엔진 `app/domino-logic.js`, 테스트 `tools/test-domino-logic.mjs`(무차별 대입과 대조).
+- **해커** (`hacker.html`) — ThinkFun Hacker에서 착안한 코딩 퍼즐(규칙은 자체 정의): 5×5 판에서 요원이 프로그램 칸의 이동 타일을 한 박자씩 실행하고, 2×2 회전 발판은 정해진 박자에 저절로 돕니다. 작성(문서를 줍고 출구로) → 해킹(타일 순서는 그대로, 좌우로만 밀어 바이러스로) → 방어(붙은 두 타일을 연결해 모든 해킹 차단)의 세 단계. 타일은 핀치로 옮기고 밉니다. 문제는 즉석 생성하며, 어떤 정답 프로그램으로 풀어도 해킹과 방어가 가능한 것만 냅니다. 규칙 엔진 `app/hacker-logic.js`, 테스트 `tools/test-hacker-logic.mjs`(무차별 대입과 대조).
 - `index.html` — 게임 선택 화면.
 
 ## 실행
